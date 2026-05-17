@@ -26,10 +26,13 @@ import orjson
 from aiohttp import web
 
 from . import feeds as feeds_mod
+from .crawl import crawl_iter, crawl_start, crawl_status
 from .fetch import FetchDeps
 from .log import log
 from .queue import run_and_record
 from .security import is_safe_external_url
+from .sitemap import sitemap_parse
+from .sinks.chroma import should_sink, sink_fetch_outcome
 from .state import (
     enqueue, feeds_count, jobs_count, queue_depth, recent_jobs, seen_count,
 )
@@ -239,6 +242,233 @@ async def jobs(request: web.Request) -> web.Response:
     return _json({"jobs": await recent_jobs(redis, limit=limit)})
 
 
+# ─── /crawl (recursive crawl with depth limit) ───────────────────────
+async def crawl(request: web.Request) -> web.Response:
+    """``POST /crawl`` — start a recursive crawl job.
+
+    Request body: {url, max_depth?, max_pages?, same_domain_only?, timeout_seconds?}
+    Response (200): {job_id, status, seed_url, pages_fetched, pages_queued, ...}
+    """
+    payload, err = await _read_json(request)
+    if err:
+        return _json({"error": err}, status=400)
+
+    url = (payload or {}).get("url", "").strip()
+    if not url or not isinstance(url, str):
+        return _json({"error": "url required"}, status=400)
+
+    if not is_safe_external_url(url):
+        log("crawl.blocked", url=url)
+        return _json({"error": "url failed SSRF gate", "url": url}, status=400)
+
+    redis = request.app.get("redis")
+    if redis is None:
+        return _json({"error": "redis not configured"}, status=503)
+
+    max_depth = int((payload or {}).get("max_depth", 2) or 2)
+    max_pages = int((payload or {}).get("max_pages", 50) or 50)
+    same_domain_only = (payload or {}).get("same_domain_only", True)
+    if not isinstance(same_domain_only, bool):
+        same_domain_only = str(same_domain_only).lower() in ("true", "1", "yes")
+    timeout_seconds = int((payload or {}).get("timeout_seconds", 600) or 600)
+
+    job_id = await crawl_start(
+        redis,
+        url,
+        max_depth=max_depth,
+        max_pages=max_pages,
+        same_domain_only=same_domain_only,
+        timeout_seconds=timeout_seconds,
+    )
+
+    status = await crawl_status(redis, job_id)
+    return _json({"job_id": job_id, **status})
+
+
+async def crawl_status_route(request: web.Request) -> web.Response:
+    """``GET /crawl/{job_id}`` — get crawl job status."""
+    redis = request.app.get("redis")
+    if redis is None:
+        return _json({"error": "redis not configured"}, status=503)
+
+    job_id = request.match_info["job_id"]
+    status = await crawl_status(redis, job_id)
+    if status.get("status") == "not_found":
+        return _json(status, status=404)
+    return _json(status)
+
+
+async def crawl_results(request: web.Request) -> web.Response:
+    """``GET /crawl/{job_id}/results`` — get crawl results (list of fetched pages)."""
+    redis = request.app.get("redis")
+    if redis is None:
+        return _json({"error": "redis not configured"}, status=503)
+
+    job_id = request.match_info["job_id"]
+    results_key = f"crawler:crawl:{job_id}:results"
+
+    # Check if job exists
+    state_key = f"crawler:crawl:{job_id}:state"
+    state = await redis.hgetall(state_key)
+    if not state:
+        return _json({"error": "not found"}, status=404)
+
+    # Fetch results
+    results_raw = await redis.lrange(results_key, 0, -1)
+    results = []
+    for item in results_raw:
+        try:
+            results.append(orjson.loads(item))
+        except Exception:
+            pass
+
+    return _json({"job_id": job_id, "count": len(results), "results": results})
+
+
+# ─── /sitemap (parse sitemap.xml) ────────────────────────────────────
+async def sitemap_handler(request: web.Request) -> web.Response:
+    """``POST /sitemap/parse`` — parse a sitemap.xml and optionally enqueue URLs.
+
+    Request body: {url, queue?, max_urls?}
+    Response (200): {url, urls: [...], count, queued, errors?}
+    """
+    payload, err = await _read_json(request)
+    if err:
+        return _json({"error": err}, status=400)
+
+    url = (payload or {}).get("url", "").strip()
+    if not url or not isinstance(url, str):
+        return _json({"error": "url required"}, status=400)
+
+    if not is_safe_external_url(url):
+        log("sitemap.blocked", url=url)
+        return _json({"error": "url failed SSRF gate"}, status=400)
+
+    http = request.app.get("http")
+    if http is None:
+        return _json({"error": "http session not configured"}, status=503)
+
+    redis = request.app.get("redis") if (payload or {}).get("queue") else None
+
+    max_urls = int((payload or {}).get("max_urls", 1000) or 1000)
+    queue_flag = (payload or {}).get("queue", False)
+
+    result = await sitemap_parse(
+        http,
+        url,
+        max_urls=max_urls,
+        queue=queue_flag,
+        redis=redis,
+    )
+    return _json(result)
+
+
+# ─── /screenshot (browser screenshot) ────────────────────────────────
+async def screenshot(request: web.Request) -> web.Response:
+    """``POST /screenshot`` — take a browser screenshot of a URL.
+
+    Request body: {url, full_page?}
+    Response (200): {ok, png_b64, ms} or error
+    Status codes: 200 ok, 400 SSRF, 502 browser error
+    """
+    payload, err = await _read_json(request)
+    if err:
+        return _json({"error": err}, status=400)
+
+    url = (payload or {}).get("url", "").strip()
+    if not url or not isinstance(url, str):
+        return _json({"error": "url required"}, status=400)
+
+    if not is_safe_external_url(url):
+        log("screenshot.blocked", url=url)
+        return _json({"error": "url failed SSRF gate"}, status=400)
+
+    pool = request.app.get("browser")
+    if pool is None:
+        return _json({"error": "browser pool not configured"}, status=503)
+
+    full_page = (payload or {}).get("full_page", True)
+    if not isinstance(full_page, bool):
+        full_page = str(full_page).lower() in ("true", "1", "yes")
+
+    import time
+    t0 = time.perf_counter()
+
+    try:
+        async with pool.lease() as page:
+            await page.goto(url, wait_until="networkidle")
+            png_bytes = await page.screenshot(full_page=full_page)
+            import base64
+            png_b64 = base64.b64encode(png_bytes).decode("utf-8")
+
+            ms = int((time.perf_counter() - t0) * 1000)
+            return _json({"ok": True, "png_b64": png_b64, "ms": ms})
+
+    except Exception as e:
+        log("screenshot.error", url=url, error=f"{type(e).__name__}: {e}")
+        return _json({"error": f"{type(e).__name__}: {e}", "url": url}, status=502)
+
+
+# ─── /extract (CSS selector extraction) ──────────────────────────────
+async def extract(request: web.Request) -> web.Response:
+    """``POST /extract`` — extract content via CSS selector.
+
+    Request body: {url, selector, attr?}
+    If attr is set, returns attribute values; else text content.
+    Response (200): {ok, matches: [...], ms}
+    """
+    payload, err = await _read_json(request)
+    if err:
+        return _json({"error": err}, status=400)
+
+    url = (payload or {}).get("url", "").strip()
+    selector = (payload or {}).get("selector", "").strip()
+
+    if not url or not selector:
+        return _json({"error": "url and selector required"}, status=400)
+
+    if not is_safe_external_url(url):
+        log("extract.blocked", url=url)
+        return _json({"error": "url failed SSRF gate"}, status=400)
+
+    pool = request.app.get("browser")
+    if pool is None:
+        return _json({"error": "browser pool not configured"}, status=503)
+
+    attr = (payload or {}).get("attr")
+
+    import time
+    t0 = time.perf_counter()
+
+    try:
+        async with pool.lease() as page:
+            await page.goto(url, wait_until="networkidle")
+
+            if attr:
+                # Get attribute values
+                results = await page.evaluate(
+                    f"""() => {{
+                        const elems = document.querySelectorAll('{selector}');
+                        return Array.from(elems).map(e => e.getAttribute('{attr}'));
+                    }}"""
+                )
+            else:
+                # Get text content
+                results = await page.evaluate(
+                    f"""() => {{
+                        const elems = document.querySelectorAll('{selector}');
+                        return Array.from(elems).map(e => e.textContent);
+                    }}"""
+                )
+
+            ms = int((time.perf_counter() - t0) * 1000)
+            return _json({"ok": True, "matches": results or [], "ms": ms})
+
+    except Exception as e:
+        log("extract.error", url=url, selector=selector, error=f"{type(e).__name__}: {e}")
+        return _json({"error": f"{type(e).__name__}: {e}", "url": url}, status=502)
+
+
 # ─── registration ───────────────────────────────────────────────────
 def register_routes(app: web.Application) -> None:
     """Wire all v1 routes into ``app``. Idempotent across distinct apps."""
@@ -251,11 +481,21 @@ def register_routes(app: web.Application) -> None:
     app.router.add_delete("/feeds/{id}", feeds_del)
     app.router.add_post("/feeds/{id}/poll", feeds_poll)
     app.router.add_get("/jobs", jobs)
+    app.router.add_post("/crawl", crawl)
+    app.router.add_get("/crawl/{job_id}", crawl_status_route)
+    app.router.add_get("/crawl/{job_id}/results", crawl_results)
+    app.router.add_post("/sitemap/parse", sitemap_handler)
+    app.router.add_post("/screenshot", screenshot)
+    app.router.add_post("/extract", extract)
 
 
 __all__ = [
+    "crawl", "crawl_results", "crawl_status_route",
+    "extract",
     "feeds_add", "feeds_del", "feeds_get", "feeds_list", "feeds_poll",
     "fetch_async", "fetch_sync",
     "health", "jobs",
     "register_routes",
+    "screenshot",
+    "sitemap_handler",
 ]

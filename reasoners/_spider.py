@@ -123,4 +123,216 @@ async def _feed_add(
         }
 
 
-__all__ = ["_fetch", "_feed_add", "SPIDER_HTTP_URL", "TIMEOUT_S"]
+async def _feed_list() -> dict[str, Any]:
+    """List all registered feeds."""
+    try:
+        async with _client_factory() as client:
+            r = await client.get(f"{SPIDER_HTTP_URL}/feeds")
+            try:
+                return r.json()
+            except ValueError:
+                return {
+                    "status": "error",
+                    "error": f"non-json response: HTTP {r.status_code}",
+                }
+    except httpx.RequestError as e:
+        return {
+            "status": "error",
+            "error": f"{type(e).__name__}: {e}",
+        }
+
+
+async def _feed_remove(feed_id: str) -> dict[str, Any]:
+    """Remove a feed by ID."""
+    try:
+        async with _client_factory() as client:
+            r = await client.delete(f"{SPIDER_HTTP_URL}/feeds/{feed_id}")
+            try:
+                payload = r.json()
+            except ValueError:
+                return {
+                    "status": "error",
+                    "error": f"non-json response: HTTP {r.status_code}",
+                }
+            if r.status_code >= 400:
+                payload.setdefault("status_code", r.status_code)
+            return payload
+    except httpx.RequestError as e:
+        return {
+            "status": "error",
+            "error": f"{type(e).__name__}: {e}",
+        }
+
+
+async def _feed_poll(feed_id: str) -> dict[str, Any]:
+    """Force-poll a feed."""
+    try:
+        async with _client_factory() as client:
+            r = await client.post(f"{SPIDER_HTTP_URL}/feeds/{feed_id}/poll")
+            try:
+                return r.json()
+            except ValueError:
+                return {
+                    "status": "error",
+                    "error": f"non-json response: HTTP {r.status_code}",
+                }
+    except httpx.RequestError as e:
+        return {
+            "status": "error",
+            "error": f"{type(e).__name__}: {e}",
+        }
+
+
+async def _jobs_recent(limit: int = 50) -> dict[str, Any]:
+    """List recent fetch jobs."""
+    try:
+        async with _client_factory() as client:
+            r = await client.get(f"{SPIDER_HTTP_URL}/jobs?limit={limit}")
+            try:
+                return r.json()
+            except ValueError:
+                return {
+                    "status": "error",
+                    "error": f"non-json response: HTTP {r.status_code}",
+                }
+    except httpx.RequestError as e:
+        return {
+            "status": "error",
+            "error": f"{type(e).__name__}: {e}",
+        }
+
+
+async def _crawl(
+    url: str,
+    max_depth: int = 2,
+    max_pages: int = 50,
+    same_domain_only: bool = True,
+    timeout_seconds: int = 600,
+) -> dict[str, Any]:
+    """Start a recursive crawl."""
+    body = {
+        "url": url,
+        "max_depth": max_depth,
+        "max_pages": max_pages,
+        "same_domain_only": same_domain_only,
+        "timeout_seconds": timeout_seconds,
+    }
+    try:
+        async with _client_factory() as client:
+            r = await client.post(f"{SPIDER_HTTP_URL}/crawl", json=body)
+            try:
+                return r.json()
+            except ValueError:
+                return {
+                    "status": "error",
+                    "error": f"non-json response: HTTP {r.status_code}",
+                }
+    except httpx.RequestError as e:
+        return {
+            "status": "error",
+            "error": f"{type(e).__name__}: {e}",
+        }
+
+
+async def _crawl_status(job_id: str) -> dict[str, Any]:
+    """Get crawl job status."""
+    try:
+        async with _client_factory() as client:
+            r = await client.get(f"{SPIDER_HTTP_URL}/crawl/{job_id}")
+            try:
+                return r.json()
+            except ValueError:
+                return {
+                    "status": "error",
+                    "error": f"non-json response: HTTP {r.status_code}",
+                }
+    except httpx.RequestError as e:
+        return {
+            "status": "error",
+            "error": f"{type(e).__name__}: {e}",
+        }
+
+
+async def _sitemap_parse(
+    url: str,
+    max_urls: int = 1000,
+    queue: bool = False,
+) -> dict[str, Any]:
+    """Parse a sitemap."""
+    body = {"url": url, "max_urls": max_urls, "queue": queue}
+    try:
+        async with _client_factory() as client:
+            r = await client.post(f"{SPIDER_HTTP_URL}/sitemap/parse", json=body)
+            try:
+                return r.json()
+            except ValueError:
+                return {
+                    "status": "error",
+                    "error": f"non-json response: HTTP {r.status_code}",
+                }
+    except httpx.RequestError as e:
+        return {
+            "status": "error",
+            "error": f"{type(e).__name__}: {e}",
+        }
+
+
+async def _screenshot(
+    url: str,
+    full_page: bool = True,
+) -> dict[str, Any]:
+    """Take a screenshot."""
+    body = {"url": url, "full_page": full_page}
+    try:
+        async with _client_factory() as client:
+            r = await client.post(f"{SPIDER_HTTP_URL}/screenshot", json=body)
+            try:
+                return r.json()
+            except ValueError:
+                return {
+                    "status": "error",
+                    "error": f"non-json response: HTTP {r.status_code}",
+                }
+    except httpx.RequestError as e:
+        return {
+            "status": "error",
+            "error": f"{type(e).__name__}: {e}",
+        }
+
+
+async def _extract(
+    url: str,
+    selector: str,
+    attr: str | None = None,
+) -> dict[str, Any]:
+    """Extract content via CSS selector."""
+    body = {"url": url, "selector": selector}
+    if attr:
+        body["attr"] = attr
+    try:
+        async with _client_factory() as client:
+            r = await client.post(f"{SPIDER_HTTP_URL}/extract", json=body)
+            try:
+                return r.json()
+            except ValueError:
+                return {
+                    "status": "error",
+                    "error": f"non-json response: HTTP {r.status_code}",
+                }
+    except httpx.RequestError as e:
+        return {
+            "status": "error",
+            "error": f"{type(e).__name__}: {e}",
+        }
+
+
+__all__ = [
+    "_crawl", "_crawl_status",
+    "_extract",
+    "_feed_add", "_feed_list", "_feed_poll", "_feed_remove",
+    "_fetch",
+    "_jobs_recent",
+    "_screenshot",
+    "_sitemap_parse",
+    "SPIDER_HTTP_URL", "TIMEOUT_S",
+]

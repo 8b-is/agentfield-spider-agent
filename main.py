@@ -28,7 +28,10 @@ from typing import Any
 
 from agentfield import Agent
 
-from reasoners._spider import _fetch, _feed_add
+from reasoners._spider import (
+    _crawl, _crawl_status, _extract, _feed_add, _feed_list, _feed_poll, _feed_remove,
+    _fetch, _jobs_recent, _screenshot, _sitemap_parse,
+)
 
 logger = logging.getLogger("spider-agent")
 logging.basicConfig(
@@ -76,6 +79,90 @@ async def feed_add(
     poller wakes up when interval_s elapses and re-fetches it.
     """
     return await _feed_add(url=url, interval_s=interval_s, name=name)
+
+
+@app.skill()
+async def feed_list() -> dict[str, Any]:
+    """List all registered feeds."""
+    return await _feed_list()
+
+
+@app.skill()
+async def feed_remove(feed_id: str) -> dict[str, Any]:
+    """Remove a feed by ID."""
+    return await _feed_remove(feed_id)
+
+
+@app.skill()
+async def feed_poll(feed_id: str) -> dict[str, Any]:
+    """Force-poll a feed immediately."""
+    return await _feed_poll(feed_id)
+
+
+@app.skill()
+async def jobs_recent(limit: int = 50) -> dict[str, Any]:
+    """List recent fetch jobs."""
+    return await _jobs_recent(limit)
+
+
+@app.skill()
+async def crawl(
+    url: str,
+    max_depth: int = 2,
+    max_pages: int = 50,
+    same_domain_only: bool = True,
+    timeout_seconds: int = 600,
+) -> dict[str, Any]:
+    """Recursively crawl from a seed URL.
+
+    Returns a job_id; use crawl_status(job_id) to poll for completion.
+    """
+    return await _crawl(
+        url,
+        max_depth=max_depth,
+        max_pages=max_pages,
+        same_domain_only=same_domain_only,
+        timeout_seconds=timeout_seconds,
+    )
+
+
+@app.skill()
+async def crawl_status(job_id: str) -> dict[str, Any]:
+    """Get the status of a crawl job."""
+    return await _crawl_status(job_id)
+
+
+@app.skill()
+async def sitemap_parse(
+    url: str,
+    max_urls: int = 1000,
+    queue: bool = False,
+) -> dict[str, Any]:
+    """Parse a sitemap.xml and optionally enqueue discovered URLs."""
+    return await _sitemap_parse(url, max_urls=max_urls, queue=queue)
+
+
+@app.skill()
+async def screenshot(
+    url: str,
+    full_page: bool = True,
+) -> dict[str, Any]:
+    """Take a browser screenshot of a URL."""
+    return await _screenshot(url, full_page=full_page)
+
+
+@app.skill()
+async def extract(
+    url: str,
+    selector: str,
+    attr: str | None = None,
+) -> dict[str, Any]:
+    """Extract content from a URL using a CSS selector.
+
+    If attr is provided, extracts the attribute value; otherwise extracts text.
+    Returns a dict with {ok, matches: [...], ms}.
+    """
+    return await _extract(url, selector, attr=attr)
 
 
 if __name__ == "__main__":

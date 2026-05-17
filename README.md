@@ -20,10 +20,25 @@ a k3s rollout — see "Local quick start" below.
 |---|---|---|
 | AgentField | `spider-agent.fetch(url, sync=True)` | `{status, id, url, fetch_url, title, text, ms, ts}` on ok |
 | AgentField | `spider-agent.feed_add(url, interval_s=3600, name=None)` | feed record |
+| AgentField | `spider-agent.feed_list()` | `{feeds: [...]}` |
+| AgentField | `spider-agent.feed_remove(feed_id)` | `{ok: true}` or error |
+| AgentField | `spider-agent.feed_poll(feed_id)` | poll result dict |
+| AgentField | `spider-agent.jobs_recent(limit=50)` | `{jobs: [...]}` |
+| AgentField | `spider-agent.crawl(url, max_depth=2, max_pages=50, same_domain_only=True, timeout_seconds=600)` | `{job_id, status, ...}` |
+| AgentField | `spider-agent.crawl_status(job_id)` | `{job_id, status, pages_fetched, pages_queued, ...}` |
+| AgentField | `spider-agent.sitemap_parse(url, max_urls=1000, queue=False)` | `{url, urls: [...], count, queued}` |
+| AgentField | `spider-agent.screenshot(url, full_page=True)` | `{ok, png_b64, ms}` |
+| AgentField | `spider-agent.extract(url, selector, attr=None)` | `{ok, matches: [...], ms}` |
 | HTTP | `POST /fetch/sync {url}` | same dict as `fetch(sync=True)` |
 | HTTP | `POST /fetch {url}` | `{queued: true, url}` (Redis-backed worker) |
 | HTTP | `POST /feeds {url, interval_s?, name?}` | `{id, url, ...}` |
 | HTTP | `GET /feeds` / `GET /feeds/{id}` / `DELETE /feeds/{id}` / `POST /feeds/{id}/poll` | feed CRUD + force-poll |
+| HTTP | `POST /crawl {url, max_depth?, max_pages?, same_domain_only?, timeout_seconds?}` | `{job_id, status, ...}` |
+| HTTP | `GET /crawl/{job_id}` | crawl status |
+| HTTP | `GET /crawl/{job_id}/results` | `{job_id, count, results: [...]}` |
+| HTTP | `POST /sitemap/parse {url, queue?, max_urls?}` | `{url, urls: [...], count, queued}` |
+| HTTP | `POST /screenshot {url, full_page?}` | `{ok, png_b64, ms}` |
+| HTTP | `POST /extract {url, selector, attr?}` | `{ok, matches: [...], ms}` |
 | HTTP | `GET /jobs?limit=50` | recent fetch outcomes |
 | HTTP | `GET /health` | snapshot |
 

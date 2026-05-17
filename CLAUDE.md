@@ -71,6 +71,12 @@ Default if you're unsure: `spider-agent` for "scrape N pages",
   `"blocked-by-ssrf-gate"`, 400.
 - Empty extraction (< 100 chars) → record as `"empty"`, 200 with empty
   body. Caller's choice whether to retry.
+- Crawl timeout exceeded → crawl status becomes `"completed"` when
+  `max_pages` is hit or queue is empty.
+- Sitemap parse error (non-200 HTTP, invalid XML, etc.) → returned as
+  `errors` array in response; does not fail the request.
+- Chromadb sink error → silently skipped (never fails primary fetch).
+  Logged at `sink.exception` level.
 
 ## Runtime contract
 

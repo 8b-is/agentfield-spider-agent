@@ -23,6 +23,7 @@ import orjson
 
 from .fetch import FetchDeps, fetch_one
 from .log import log
+from .sinks.chroma import should_sink, sink_fetch_outcome
 from .state import K_QUEUE, enqueue, mark_seen, record_job
 
 # ─── env knobs ──────────────────────────────────────────────────────
@@ -43,6 +44,9 @@ async def run_and_record(
       - successful fetch (status="ok") -> SADD ``crawler:seen``
       - every outcome -> ZADD ``crawler:jobs``
 
+    If the chromadb sink is enabled and the fetch is ok, also posts
+    to the sink (silently skips on error).
+
     If ``redis`` is None the recording is skipped (useful for
     standalone tests of the fetch pipeline alone).
     """
@@ -52,6 +56,11 @@ async def run_and_record(
         if result.get("status") == "ok":
             await mark_seen(redis, url)
         await record_job(redis, result)
+
+    # Sink to chromadb if configured and status is ok
+    if should_sink() and result.get("status") == "ok":
+        await sink_fetch_outcome(deps.http, result)
+
     return result
 
 
