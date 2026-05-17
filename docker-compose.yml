@@ -1,0 +1,47 @@
+# Local-mode runtime. Joins my-agent_default so the agent can reach the
+# compose control-plane at http://control-plane:8080. Bundles a redis
+# sidecar (production assumes external Redis via REDIS_URL).
+
+services:
+  spider-agent:
+    build: .
+    env_file: .env
+    environment:
+      AGENT_CALLBACK_URL: http://spider-agent:8005
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      - redis
+    networks:
+      - my-agent_default
+    ports:
+      - "8005:8005"
+    restart: unless-stopped
+
+  spider-http:
+    build: .
+    env_file: .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    command: python spider_server.py
+    depends_on:
+      - redis
+    networks:
+      - my-agent_default
+    ports:
+      - "11700:11700"
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    networks:
+      - my-agent_default
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+networks:
+  my-agent_default:
+    external: true

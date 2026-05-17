@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+.eggs/
+*.egg-info/
+*.egg
+
+# Tests / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# Env
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Build / runtime
+build/
+dist/
+*.log
+*.pid
+
+# CloakBrowser cache (~200 MB Chromium binary, auto-fetched on first run)
+.cloakbrowser/
+cloakbrowser_cache/
+
+# k3s real secrets (only .example.yaml is committed)
+deploy/k3s/secret.yaml
+deploy/k3s/secret.*.yaml
+!deploy/k3s/secret.example.yaml

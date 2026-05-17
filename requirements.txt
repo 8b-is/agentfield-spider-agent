@@ -1,0 +1,9 @@
+agentfield
+httpx
+pydantic
+aiohttp>=3.10
+redis>=5
+feedparser>=6
+orjson
+pytest>=8
+pytest-asyncio>=0.23
