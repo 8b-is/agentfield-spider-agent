@@ -6,6 +6,24 @@ Provide web fetch + RSS/Atom feed polling to the agent fleet (via
 AgentField `@app.skill()`) and to any rag-stack-compatible HTTP caller
 (via aiohttp on :11700). One Python core, two delivery surfaces.
 
+## Role boundary with `camofox-agent`
+
+The swarm has two anti-detect browser agents. They are NOT redundant —
+they specialize:
+
+| Use case | Agent | Why |
+|---|---|---|
+| Bulk crawl (depth-N) | **`spider-agent` (this one)** | Redis-backed queue, dedup, robots.txt + politeness, RSS/Atom feed poller, rag-stack HTTP API compat on :11700 |
+| RSS / Atom feed monitoring | **`spider-agent`** | `feed_add` + scheduled poll baked in |
+| Interactive multi-step browse | `camofox-agent` | `browse(actions=[...])` with click/type/snapshot ops on one tab |
+| Visual debug (Dynamic Island, VNC) | `camofox-agent` | `fetch_page(watch=True)` returns vncUrl |
+| OpenClaw plugin integration | `camofox-agent` | `openclaw.plugin.json` autoloads inside nemoclaw sandboxes |
+| Anti-fingerprint at Firefox level | `camofox-agent` | Camoufox source-level fingerprint spoofing |
+| Anti-fingerprint at Chromium level | **`spider-agent`** | CloakBrowser source-level Chromium stealth |
+
+Default if you're unsure: `spider-agent` for "scrape N pages",
+`camofox-agent` for "drive one browser like a human would".
+
 ## Architecture at a glance
 
 - **Pattern:** deterministic dispatcher (no `.ai()`), one agent, externally
