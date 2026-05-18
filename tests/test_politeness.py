@@ -4,6 +4,7 @@ HostBucket's per-host throttling.
 RobotsCache is exercised against a fake aiohttp-like session so we
 don't make network requests in CI.
 """
+
 from __future__ import annotations
 
 import asyncio

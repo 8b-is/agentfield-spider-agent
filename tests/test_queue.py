@@ -4,6 +4,7 @@ The dispatcher loop itself runs forever (BRPOP-blocked), so we exercise
 the ``run_and_record`` and ``_run_one`` helpers directly. End-to-end
 loop coverage lives in the docker compose smoke ladder.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -35,7 +36,10 @@ def test_run_and_record_writes_to_redis(make_deps, monkeypatch, fake_redis) -> N
 
     async def _go():
         result = await queue.run_and_record(
-            deps, fake_redis, "https://example.com/", source="api-sync",
+            deps,
+            fake_redis,
+            "https://example.com/",
+            source="api-sync",
         )
         assert result["status"] == "ok"
         assert result["source"] == "api-sync"
@@ -48,7 +52,10 @@ def test_run_and_record_writes_to_redis(make_deps, monkeypatch, fake_redis) -> N
 
 
 def test_run_and_record_records_failure_without_marking_seen(
-    make_deps, make_page, monkeypatch, fake_redis,
+    make_deps,
+    make_page,
+    monkeypatch,
+    fake_redis,
 ) -> None:
     """A browser-error fetch records the job but does NOT mark seen."""
     from spider import fetch
@@ -67,7 +74,10 @@ def test_run_and_record_records_failure_without_marking_seen(
 
     async def _go():
         result = await queue.run_and_record(
-            deps, fake_redis, "https://example.com/", source="api-sync",
+            deps,
+            fake_redis,
+            "https://example.com/",
+            source="api-sync",
         )
         assert result["status"] == "error"
         assert await state.is_seen(fake_redis, "https://example.com/") is False
@@ -94,7 +104,10 @@ def test_run_and_record_handles_missing_redis(make_deps, monkeypatch) -> None:
 
     async def _go():
         result = await queue.run_and_record(
-            deps, None, "https://example.com/", source="manual",
+            deps,
+            None,
+            "https://example.com/",
+            source="manual",
         )
         assert result["status"] == "ok"
 
@@ -102,7 +115,9 @@ def test_run_and_record_handles_missing_redis(make_deps, monkeypatch) -> None:
 
 
 def test_run_one_decodes_job_payload(
-    make_deps, monkeypatch, fake_redis,
+    make_deps,
+    monkeypatch,
+    fake_redis,
 ) -> None:
     """_run_one parses the orjson-encoded queue entry and forwards source."""
     from spider import fetch
@@ -131,7 +146,8 @@ def test_run_one_decodes_job_payload(
 
 
 def test_run_one_gracefully_ignores_malformed_payload(
-    make_deps, fake_redis,
+    make_deps,
+    fake_redis,
 ) -> None:
     deps, _ = make_deps()
     sem = asyncio.Semaphore(1)

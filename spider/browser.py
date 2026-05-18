@@ -21,6 +21,7 @@ Chromium on first use), the import fails with ``MissingDependencyError``
 and the pod crash-loops — surfacing the config problem rather than
 silently returning errors.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -29,6 +30,7 @@ import os
 import time
 from typing import Any
 
+from .errors import MissingDependencyError
 from .log import log
 from .proxy import cloakbrowser_launch_kwargs
 
@@ -39,10 +41,6 @@ DISABLE_RESOURCES = os.environ.get("FETCH_DISABLE_RES", "1") == "1"
 FETCH_TIMEOUT_MS = int(os.environ.get("FETCH_TIMEOUT_MS", "30000"))
 BROWSER_IDLE_S = int(os.environ.get("BROWSER_IDLE_S", "60"))
 BROWSER_MAX_PAGES = int(os.environ.get("BROWSER_MAX_PAGES", "3"))
-
-
-class MissingDependencyError(RuntimeError):
-    """Raised when CloakBrowser isn't importable. Treat as fatal."""
 
 
 class CloakBrowserPool:
@@ -56,8 +54,13 @@ class CloakBrowserPool:
     """
 
     __slots__ = (
-        "_browser", "_idle_at", "_kwargs",
-        "_launch_factory", "_leases", "_lock", "_reaper",
+        "_browser",
+        "_idle_at",
+        "_kwargs",
+        "_launch_factory",
+        "_leases",
+        "_lock",
+        "_reaper",
     )
 
     def __init__(
@@ -71,7 +74,7 @@ class CloakBrowserPool:
         self._leases: int = 0
         self._idle_at: float = 0.0
         self._lock = asyncio.Lock()
-        self._reaper: asyncio.Task | None = None
+        self._reaper: asyncio.Task[None] | None = None
         # Injectable for tests; production path imports cloakbrowser lazily
         # the first time we open the browser so we don't pay the binary
         # download cost on module import.
@@ -80,7 +83,7 @@ class CloakBrowserPool:
     async def _open(self) -> None:
         if self._launch_factory is None:
             try:
-                from cloakbrowser import launch_async  # type: ignore[import-not-found]
+                from cloakbrowser import launch_async
             except ImportError as e:
                 raise MissingDependencyError(
                     "cloakbrowser is not importable. "
@@ -119,7 +122,7 @@ class CloakBrowserPool:
             log("browser", state="closed", reason=reason)
 
     @contextlib.asynccontextmanager
-    async def lease(self):
+    async def lease(self) -> Any:
         """Yield a fresh ``Page`` from the shared browser.
 
         Pages are closed on exit. The browser is opened on the first

@@ -5,6 +5,7 @@ Public surface:
 - crawl_status(redis, job_id) -> dict with status, counts, errors
 - crawl_iter(deps, redis, job_id) -> one iteration of the crawler loop (called by dispatcher)
 """
+
 from __future__ import annotations
 
 import time
@@ -104,9 +105,11 @@ def _extract_links(text: str, base_url: str) -> list[str]:
     links = []
     try:
         from bs4 import BeautifulSoup
+
         soup = BeautifulSoup(text, "html.parser")
         for a in soup.find_all("a", href=True):
-            href = a["href"].strip()
+            raw_href = a.get("href")
+            href = str(raw_href).strip() if raw_href else ""
             if href and not href.startswith(("#", "javascript:", "mailto:", "tel:")):
                 absolute = urljoin(base_url, href)
                 # Drop fragment

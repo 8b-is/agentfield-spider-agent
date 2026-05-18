@@ -20,6 +20,7 @@ pool on first use, so the unused backend has zero cost.
 The two pools share a small Protocol (``BrowserPool`` in ``.base``) so
 ``fetch_one`` doesn't care which backend the lease comes from.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -65,9 +66,11 @@ def make_pool(backend: Backend, **kwargs: Any) -> BrowserPool:
     """
     if backend == "lightpanda":
         from .lightpanda import LightpandaPool
+
         return LightpandaPool(**kwargs)
     # Default + fallback: cloak
     from .cloak import CloakPool
+
     return CloakPool(**kwargs)
 
 
@@ -88,7 +91,8 @@ def _get_lazy_lock() -> asyncio.Lock:
 
 
 async def get_or_create_pool(
-    backend: Backend, **kwargs: Any,
+    backend: Backend,
+    **kwargs: Any,
 ) -> BrowserPool:
     """Return the pool for ``backend``, constructing on first call.
 

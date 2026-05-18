@@ -13,6 +13,7 @@ If GITHUB_TOKEN isn't set we send unauthenticated requests anyway; the
 caller will hit 403 when rate-limited and we surface that as
 ``status="error"`` per the dispatcher contract.
 """
+
 from __future__ import annotations
 
 import base64
@@ -34,10 +35,12 @@ from .base import (
 
 _API_BASE = "https://api.github.com"
 _REPO_RE = re.compile(
-    r"^https?://github\.com/([^/]+)/([^/?#]+?)(?:\.git)?/?(?:[?#].*)?$", re.I,
+    r"^https?://github\.com/([^/]+)/([^/?#]+?)(?:\.git)?/?(?:[?#].*)?$",
+    re.I,
 )
 _ISSUE_RE = re.compile(
-    r"^https?://github\.com/([^/]+)/([^/]+)/issues/(\d+)", re.I,
+    r"^https?://github\.com/([^/]+)/([^/]+)/issues/(\d+)",
+    re.I,
 )
 
 
@@ -52,7 +55,7 @@ def _auth_headers() -> dict[str, str]:
     return headers
 
 
-async def _gh_get(client: httpx.AsyncClient, path: str) -> dict | None:
+async def _gh_get(client: httpx.AsyncClient, path: str) -> dict[str, Any] | None:
     """``GET {API_BASE}{path}``. Returns parsed JSON or ``None`` on 4xx/5xx.
 
     Caller is expected to interpret a None as "no data; check the
@@ -66,12 +69,15 @@ async def _gh_get(client: httpx.AsyncClient, path: str) -> dict | None:
         return None
     if resp.status_code >= 400:
         log(
-            "github.api", state="non-2xx",
-            path=path, code=resp.status_code,
+            "github.api",
+            state="non-2xx",
+            path=path,
+            code=resp.status_code,
         )
         return None
     try:
-        return resp.json()
+        data: Any = resp.json()
+        return data if isinstance(data, dict) else None
     except ValueError:
         log("github.api", state="non-json", path=path)
         return None
@@ -121,7 +127,8 @@ async def fetch_repo(url: str, *, proxy: str | None = None) -> dict[str, Any]:
         content_b64 = (readme_json.get("content") or "").replace("\n", "")
         try:
             decoded = base64.b64decode(content_b64).decode(
-                "utf-8", errors="replace",
+                "utf-8",
+                errors="replace",
             )
         except Exception:
             decoded = ""
@@ -178,7 +185,8 @@ async def fetch_issue(url: str, *, proxy: str | None = None) -> dict[str, Any]:
         **httpx_client_kwargs(proxy),
     ) as client:
         issue_json = await _gh_get(
-            client, f"/repos/{owner}/{repo}/issues/{num}",
+            client,
+            f"/repos/{owner}/{repo}/issues/{num}",
         )
 
     if issue_json is None:
@@ -191,9 +199,7 @@ async def fetch_issue(url: str, *, proxy: str | None = None) -> dict[str, Any]:
 
     title = (issue_json.get("title") or "").strip()
     state = issue_json.get("state") or "?"
-    labels = [
-        (label_obj or {}).get("name", "") for label_obj in (issue_json.get("labels") or [])
-    ]
+    labels = [(label_obj or {}).get("name", "") for label_obj in (issue_json.get("labels") or [])]
     body = (issue_json.get("body") or "").strip()
     body_excerpt = first_meaningful_paragraph(body) if body else ""
 

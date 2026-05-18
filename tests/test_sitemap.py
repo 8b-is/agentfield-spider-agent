@@ -1,4 +1,5 @@
 """Tests for sitemap parsing."""
+
 from __future__ import annotations
 
 import pytest
@@ -70,8 +71,10 @@ async def test_sitemap_parse_index():
         return r
 
     http = MagicMock()
+
     def _get(url, **kwargs):
         return _resp(index_xml if "index" in url else child_xml)
+
     http.get = _get
 
     result = await sitemap_parse(http, "https://example.com/sitemap_index.xml")

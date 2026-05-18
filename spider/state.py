@@ -12,6 +12,7 @@ shared between the dispatcher worker (``spider/queue.py``) and the HTTP
 routes (``spider/routes.py``) so both surfaces produce the same job
 records.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -112,9 +113,22 @@ async def feeds_count(r: Any) -> int:
 
 
 __all__ = [
-    "JOBS_KEEP", "K_FEEDS", "K_JOBS", "K_QUEUE", "K_SEEN",
-    "QUEUE_CAP", "SEEN_CAP", "SEEN_TRIM",
-    "enqueue", "feeds_count", "is_seen", "jobs_count", "mark_seen",
-    "queue_depth", "recent_jobs", "record_job", "seen_count",
+    "JOBS_KEEP",
+    "K_FEEDS",
+    "K_JOBS",
+    "K_QUEUE",
+    "K_SEEN",
+    "QUEUE_CAP",
+    "SEEN_CAP",
+    "SEEN_TRIM",
+    "enqueue",
+    "feeds_count",
+    "is_seen",
+    "jobs_count",
+    "mark_seen",
+    "queue_depth",
+    "recent_jobs",
+    "record_job",
+    "seen_count",
     "url_hash",
 ]

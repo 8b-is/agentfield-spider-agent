@@ -11,6 +11,7 @@ Reddit's `.json` endpoint silently 429s / returns HTML for non-browser
 User-Agents. We send a real Chrome UA — this is the same fix
 ``scripts/gather_projects.py`` had to apply when its initial run failed.
 """
+
 from __future__ import annotations
 
 import time
@@ -105,10 +106,7 @@ async def fetch_thread(url: str, *, proxy: str | None = None) -> dict[str, Any]:
     else:
         body_text = None
 
-    description = (
-        f"r/{subreddit} thread, {score} pts, "
-        f"{n_comments} comments, by u/{author}"
-    )
+    description = f"r/{subreddit} thread, {score} pts, {n_comments} comments, by u/{author}"
 
     return ok_result(
         canonical,

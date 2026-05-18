@@ -13,11 +13,12 @@ Public surface:
 - should_sink() -> bool
 - sink_fetch_outcome(http, outcome_dict) -> bool (True if sunk, False if skipped/error)
 """
+
 from __future__ import annotations
 
 import hashlib
 import os
-from typing import Any
+from typing import Any, cast
 
 import aiohttp
 
@@ -48,8 +49,10 @@ async def _embed_sentence_transformers(texts: list[str]) -> list[list[float]]:
     """Embed text using sentence-transformers (local, no network)."""
     try:
         from sentence_transformers import SentenceTransformer
+
         model = SentenceTransformer("all-MiniLM-L6-v2")
-        return model.encode(texts, convert_to_numpy=True).tolist()
+        encoded = model.encode(texts, convert_to_numpy=True).tolist()
+        return cast(list[list[float]], encoded)
     except Exception as e:
         log("sink.embed_error", mode="sentence-transformers", error=str(e))
         return [[0.0] * 384 for _ in texts]  # Fallback: zero vectors

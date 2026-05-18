@@ -1,4 +1,5 @@
 """URL classification — pure regex matching, no I/O."""
+
 from __future__ import annotations
 
 import pytest
@@ -54,4 +55,4 @@ def test_classify(url: str, expected: str) -> None:
 def test_classify_returns_generic_for_non_string() -> None:
     """Defensive: pure function shouldn't blow up on bad input."""
     assert classify(None) == "generic"  # type: ignore[arg-type]
-    assert classify(123) == "generic"   # type: ignore[arg-type]
+    assert classify(123) == "generic"  # type: ignore[arg-type]

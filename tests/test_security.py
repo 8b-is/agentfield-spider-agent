@@ -1,4 +1,5 @@
 """SSRF gate sanity checks. Layer-1 only — no DNS dependency."""
+
 from __future__ import annotations
 
 import pytest

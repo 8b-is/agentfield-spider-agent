@@ -12,6 +12,7 @@ For non-repo linked URLs we fetch the article HTML and extract a
 title + 500-char text excerpt. Ask HN / Show HN posts with selftext
 use the item's ``text`` field directly (no second fetch).
 """
+
 from __future__ import annotations
 
 import re
@@ -32,7 +33,8 @@ from .base import (
 
 _ID_RE = re.compile(r"\bid=(\d+)")
 _GITHUB_REPO_RE = re.compile(
-    r"^https?://github\.com/[^/]+/[^/?#]+/?(?:[?#].*)?$", re.I,
+    r"^https?://github\.com/[^/]+/[^/?#]+/?(?:[?#].*)?$",
+    re.I,
 )
 
 
@@ -61,12 +63,16 @@ async def fetch_item(url: str, *, proxy: str | None = None) -> dict[str, Any]:
             item = resp.json()
         except (httpx.RequestError, httpx.HTTPStatusError, ValueError) as e:
             return error_result(
-                url, error=f"hn api: {type(e).__name__}: {e}", t0=t0,
+                url,
+                error=f"hn api: {type(e).__name__}: {e}",
+                t0=t0,
             )
 
         if not isinstance(item, dict):
             return error_result(
-                url, error="hn api returned non-dict", t0=t0,
+                url,
+                error="hn api returned non-dict",
+                t0=t0,
             )
 
         title = (item.get("title") or "").strip()
@@ -85,11 +91,10 @@ async def fetch_item(url: str, *, proxy: str | None = None) -> dict[str, Any]:
             sub = await github_mod.fetch_repo(linked, proxy=proxy)
             sub["kind"] = "github-via-hn"
             sub["source_url"] = url
-            existing_desc = (sub.get("description") or "")
+            existing_desc = sub.get("description") or ""
             sub["description"] = (
-                f"[HN: \"{title}\" — {score} pts, "
-                f"{n_comments} comments, by {author}] "
-                + (existing_desc or "")
+                f'[HN: "{title}" — {score} pts, '
+                f"{n_comments} comments, by {author}] " + (existing_desc or "")
             ).strip()
             sub["metadata"] = {
                 **(sub.get("metadata") or {}),
@@ -113,9 +118,7 @@ async def fetch_item(url: str, *, proxy: str | None = None) -> dict[str, Any]:
                 extras={
                     "kind": "hn",
                     "name": title or f"HN#{item_id}",
-                    "description": (
-                        f"HN: {score} pts, {n_comments} comments, by {author}"
-                    ),
+                    "description": (f"HN: {score} pts, {n_comments} comments, by {author}"),
                     "source_url": url,
                     "metadata": {
                         "hn_id": int(item_id),
@@ -132,7 +135,8 @@ async def fetch_item(url: str, *, proxy: str | None = None) -> dict[str, Any]:
         try:
             ar = await client.get(linked, timeout=15.0, follow_redirects=True)
             if ar.status_code < 400 and ar.headers.get(
-                "Content-Type", "",
+                "Content-Type",
+                "",
             ).startswith(("text/", "application/xhtml")):
                 html = ar.text[:200_000]  # cap big pages
                 article_title = extract_html_title(html)
@@ -149,9 +153,7 @@ async def fetch_item(url: str, *, proxy: str | None = None) -> dict[str, Any]:
         extras={
             "kind": "hn",
             "name": name,
-            "description": (
-                f"HN: {score} pts, {n_comments} comments, by {author}"
-            ),
+            "description": (f"HN: {score} pts, {n_comments} comments, by {author}"),
             "source_url": url,
             "metadata": {
                 "hn_id": int(item_id),

@@ -5,6 +5,7 @@ construction. The httpx client is replaced with a small fake that
 records calls + returns canned responses, so no real socket is
 opened.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -25,9 +26,7 @@ class _FakeAsyncResponse:
         self.status_code = status_code
         self._body = body or {}
         self._raise_json = raise_json
-        self.text = (
-            "<not-json>" if raise_json else json.dumps(self._body)
-        )
+        self.text = "<not-json>" if raise_json else json.dumps(self._body)
 
     def json(self) -> Any:
         if self._raise_json:
@@ -90,7 +89,8 @@ def test_fetch_sync_posts_to_fetch_sync_and_returns_body(monkeypatch) -> None:
 
 def test_fetch_async_posts_to_fetch_path(monkeypatch) -> None:
     fake = _patch_client(
-        monkeypatch, [_FakeAsyncResponse(200, {"queued": True, "url": "https://x"})],
+        monkeypatch,
+        [_FakeAsyncResponse(200, {"queued": True, "url": "https://x"})],
     )
     result = _run(_spider._fetch("https://x", sync=False))
     assert result == {"queued": True, "url": "https://x"}
@@ -142,9 +142,13 @@ def test_feed_add_posts_with_optional_fields(monkeypatch) -> None:
         "last_polled": 0,
     }
     fake = _patch_client(monkeypatch, [_FakeAsyncResponse(200, payload)])
-    result = _run(_spider._feed_add(
-        "https://feed.example/rss", interval_s=1800, name="feed",
-    ))
+    result = _run(
+        _spider._feed_add(
+            "https://feed.example/rss",
+            interval_s=1800,
+            name="feed",
+        )
+    )
     assert result["id"] == "abcdef01"
     body = fake.calls[0][1]
     assert body == {

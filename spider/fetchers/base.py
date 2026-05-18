@@ -6,6 +6,7 @@ Centralizes the bits each fetcher needs:
   excerpts
 - the HTTP user-agent string the fetchers use against third-party APIs
 """
+
 from __future__ import annotations
 
 import re
@@ -59,12 +60,14 @@ def ok_result(
     """Build a ``status="ok"`` result. ``t0`` is a ``time.perf_counter()``
     sentinel taken at the start of the fetch."""
     out = base_result(url)
-    out.update({
-        "status": "ok",
-        "title": title or None,
-        "text": text or None,
-        "ms": int((time.perf_counter() - t0) * 1000),
-    })
+    out.update(
+        {
+            "status": "ok",
+            "title": title or None,
+            "text": text or None,
+            "ms": int((time.perf_counter() - t0) * 1000),
+        }
+    )
     if extras:
         out.update(extras)
     return out
@@ -80,11 +83,13 @@ def error_result(
 ) -> dict[str, Any]:
     """Build a non-ok result (status defaults to ``"error"``)."""
     out = base_result(url)
-    out.update({
-        "status": status,
-        "error": error,
-        "ms": int((time.perf_counter() - t0) * 1000),
-    })
+    out.update(
+        {
+            "status": status,
+            "error": error,
+            "ms": int((time.perf_counter() - t0) * 1000),
+        }
+    )
     if extras:
         out.update(extras)
     return out
@@ -164,7 +169,8 @@ def extract_html_title(html: str) -> str:
         return re.sub(r"\s+", " ", m.group(1)).strip()
     m = re.search(
         r'<meta\s+property=["\']og:title["\']\s+content=["\']([^"\']+)',
-        html, re.IGNORECASE,
+        html,
+        re.IGNORECASE,
     )
     if m:
         return m.group(1).strip()

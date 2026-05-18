@@ -11,6 +11,7 @@ HGETALL / HDEL / HGET / SADD / SREM / SCARD / SISMEMBER / SRANDMEMBER /
 LPUSH / LLEN / LTRIM / BRPOP / ZADD / ZCARD / ZREVRANGE /
 ZREMRANGEBYRANK).
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -156,7 +157,7 @@ def make_page():
             responses["const sel = args.selector"] = "_"
         else:
             # Fallback removal counts as "0 removed".
-            responses["[id*=\"cookie\"]"] = 0
+            responses['[id*="cookie"]'] = 0
         return FakePage(
             evaluate_responses=responses,
             goto_should_fail=goto_should_fail,

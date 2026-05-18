@@ -20,6 +20,7 @@ Chromium can render PDFs but only into a single canvas — no structured
 text, no table extraction. arxiv papers, RFCs, and slide decks need
 structure, so the spider routes them away from the browser pool.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -28,6 +29,7 @@ import time
 import uuid
 from typing import Any
 
+from .errors import DoclingDependencyError
 from .log import log
 
 # PEP 695 type alias.
@@ -35,14 +37,21 @@ type DoclingResult = dict[str, Any]
 
 
 # Recognized URL extensions that hint at document content.
-DOC_EXTS: frozenset[str] = frozenset({
-    ".pdf",
-    ".docx", ".doc",
-    ".pptx", ".ppt",
-    ".xlsx", ".xls",
-    ".odt", ".odp", ".ods",
-    ".rtf",
-})
+DOC_EXTS: frozenset[str] = frozenset(
+    {
+        ".pdf",
+        ".docx",
+        ".doc",
+        ".pptx",
+        ".ppt",
+        ".xlsx",
+        ".xls",
+        ".odt",
+        ".odp",
+        ".ods",
+        ".rtf",
+    }
+)
 
 # Content-Type prefixes that route to docling. (Used by fetcher
 # implementations doing a HEAD probe before deciding the path.)
@@ -54,13 +63,6 @@ DOC_CONTENT_TYPE_PREFIXES: tuple[str, ...] = (
     "application/vnd.ms-",
     "application/vnd.oasis.opendocument.",
 )
-
-
-class DoclingDependencyError(RuntimeError):
-    """``docling`` isn't installed; surfaced via the status dict in
-    most paths (this exception is only thrown if the caller wants to
-    know directly).
-    """
 
 
 def is_docling_url(url: str) -> bool:
@@ -155,8 +157,7 @@ async def fetch_via_docling(
         return _error_envelope(
             url,
             error=(
-                "docling not installed. Install with: "
-                "pip install agentfield-spider-agent[docling]"
+                "docling not installed. Install with: pip install agentfield-spider-agent[docling]"
             ),
             t0=t0,
             ts=ts,

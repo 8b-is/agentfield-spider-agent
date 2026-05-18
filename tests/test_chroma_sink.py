@@ -1,4 +1,5 @@
 """Tests for chromadb sink."""
+
 from __future__ import annotations
 
 import os
@@ -21,16 +22,21 @@ def test_should_sink_disabled():
 
 def test_should_sink_enabled():
     """Test sink enabled when env is set."""
-    with patch.dict(os.environ, {
-        "SPIDER_SINK_ENABLED": "1",
-        "SPIDER_SINK_CHROMA_URL": "http://chromadb:8000",
-    }):
+    with patch.dict(
+        os.environ,
+        {
+            "SPIDER_SINK_ENABLED": "1",
+            "SPIDER_SINK_CHROMA_URL": "http://chromadb:8000",
+        },
+    ):
         # Need to reimport to get new env
         import importlib
 
         from spider import sinks
+
         importlib.reload(sinks.chroma)
         from spider.sinks.chroma import should_sink as should_sink_reloaded
+
         assert should_sink_reloaded()
 
 
@@ -49,6 +55,7 @@ def test_make_doc_id():
 async def test_sink_fetch_outcome_not_enabled():
     """Test that sink gracefully skips when disabled."""
     from unittest.mock import MagicMock
+
     http = MagicMock()
 
     outcome = {
@@ -63,8 +70,10 @@ async def test_sink_fetch_outcome_not_enabled():
         import importlib
 
         from spider import sinks
+
         importlib.reload(sinks.chroma)
         from spider.sinks.chroma import sink_fetch_outcome as sink_reloaded
+
         result = await sink_reloaded(http, outcome)
         assert result is False
 

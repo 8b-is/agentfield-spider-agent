@@ -16,6 +16,7 @@ Modules:
            shortlink redirect and stripping tracking query params.
            Browser-like User-Agent (reddit blocks the urllib default).
 """
+
 from __future__ import annotations
 
 from . import github, hn, reddit

@@ -4,6 +4,7 @@ Exercises the manager against a fake pool that mimics the
 ``_browser.new_context()`` / ``BrowserContext.new_page()`` /
 ``Page.close`` chain. No real browser, no playwright.
 """
+
 from __future__ import annotations
 
 import asyncio

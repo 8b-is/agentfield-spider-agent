@@ -2,6 +2,7 @@
 
 Tests the redirect-follow, tracking-param-strip, JSON parse path.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -70,22 +71,26 @@ def _patch_httpx(monkeypatch, routes: list[tuple[str, _FakeResponse]]) -> _FakeC
     return fake
 
 
-_THREAD_PAYLOAD = [{
-    "data": {
-        "children": [{
-            "data": {
-                "title": "The golden era of software engineering is now",
-                "subreddit": "AgentsOfAI",
-                "author": "orbny",
-                "score": 89,
-                "num_comments": 34,
-                "selftext": "",
-                "url": "https://i.redd.it/abc.jpeg",
-                "is_self": False,
-            },
-        }],
-    },
-}]
+_THREAD_PAYLOAD = [
+    {
+        "data": {
+            "children": [
+                {
+                    "data": {
+                        "title": "The golden era of software engineering is now",
+                        "subreddit": "AgentsOfAI",
+                        "author": "orbny",
+                        "score": 89,
+                        "num_comments": 34,
+                        "selftext": "",
+                        "url": "https://i.redd.it/abc.jpeg",
+                        "is_self": False,
+                    },
+                }
+            ],
+        },
+    }
+]
 
 
 def test_reddit_thread_link_post(monkeypatch) -> None:
@@ -97,24 +102,34 @@ def test_reddit_thread_link_post(monkeypatch) -> None:
         "the_golden_era_of_software_engineering_is_now/"
         "?utm_source=share&share_id=NOISE"
     )
-    _patch_httpx(monkeypatch, [
-        # The shortlink fetch returns a "200" — we use the final URL
-        # via the .url field (set by follow_redirects=True in real httpx).
-        ("/s/CUBmeH7fPl", _FakeResponse(
-            200, body={}, url=redirect_target,
-        )),
-        (".json", _FakeResponse(200, body=_THREAD_PAYLOAD)),
-    ])
+    _patch_httpx(
+        monkeypatch,
+        [
+            # The shortlink fetch returns a "200" — we use the final URL
+            # via the .url field (set by follow_redirects=True in real httpx).
+            (
+                "/s/CUBmeH7fPl",
+                _FakeResponse(
+                    200,
+                    body={},
+                    url=redirect_target,
+                ),
+            ),
+            (".json", _FakeResponse(200, body=_THREAD_PAYLOAD)),
+        ],
+    )
 
-    out = _run(reddit.fetch_thread(
-        "https://www.reddit.com/r/AgentsOfAI/s/CUBmeH7fPl",
-    ))
+    out = _run(
+        reddit.fetch_thread(
+            "https://www.reddit.com/r/AgentsOfAI/s/CUBmeH7fPl",
+        )
+    )
 
     assert out["status"] == "ok"
     assert out["kind"] == "reddit"
     assert "golden era" in out["title"]
     assert out["url"].endswith("/")  # canonical URL kept its trailing slash
-    assert "?" not in out["url"]      # tracking params stripped
+    assert "?" not in out["url"]  # tracking params stripped
     assert out["source_url"] == "https://www.reddit.com/r/AgentsOfAI/s/CUBmeH7fPl"
     assert "r/AgentsOfAI" in out["description"]
     assert "89 pts" in out["description"]
@@ -126,31 +141,45 @@ def test_reddit_thread_link_post(monkeypatch) -> None:
 
 
 def test_reddit_thread_with_selftext(monkeypatch) -> None:
-    payload = [{
-        "data": {
-            "children": [{
-                "data": {
-                    "title": "Self post",
-                    "subreddit": "python",
-                    "author": "alice",
-                    "score": 10,
-                    "num_comments": 5,
-                    "selftext": "Long thoughtful body here.",
-                    "url": "https://reddit.com/...",
-                    "is_self": True,
-                },
-            }],
-        },
-    }]
-    _patch_httpx(monkeypatch, [
-        ("/r/python/comments/abc/post/", _FakeResponse(
-            200, body={}, url="https://www.reddit.com/r/python/comments/abc/post/",
-        )),
-        (".json", _FakeResponse(200, body=payload)),
-    ])
-    out = _run(reddit.fetch_thread(
-        "https://www.reddit.com/r/python/comments/abc/post/",
-    ))
+    payload = [
+        {
+            "data": {
+                "children": [
+                    {
+                        "data": {
+                            "title": "Self post",
+                            "subreddit": "python",
+                            "author": "alice",
+                            "score": 10,
+                            "num_comments": 5,
+                            "selftext": "Long thoughtful body here.",
+                            "url": "https://reddit.com/...",
+                            "is_self": True,
+                        },
+                    }
+                ],
+            },
+        }
+    ]
+    _patch_httpx(
+        monkeypatch,
+        [
+            (
+                "/r/python/comments/abc/post/",
+                _FakeResponse(
+                    200,
+                    body={},
+                    url="https://www.reddit.com/r/python/comments/abc/post/",
+                ),
+            ),
+            (".json", _FakeResponse(200, body=payload)),
+        ],
+    )
+    out = _run(
+        reddit.fetch_thread(
+            "https://www.reddit.com/r/python/comments/abc/post/",
+        )
+    )
     assert out["status"] == "ok"
     assert out["text"] == "Long thoughtful body here."
     assert out["metadata"]["is_self"] is True
@@ -161,10 +190,13 @@ def test_reddit_json_endpoint_returns_html(monkeypatch) -> None:
     as an error so the caller knows to retry with the browser path.
     Simulated via a 200 with non-JSON body (httpx would raise ValueError
     when .json() is called)."""
-    _patch_httpx(monkeypatch, [
-        ("/r/", _FakeResponse(200, body={}, url="https://www.reddit.com/r/x/comments/y/z/")),
-        (".json", _FakeResponse(200, body=None)),  # no body => ValueError on .json()
-    ])
+    _patch_httpx(
+        monkeypatch,
+        [
+            ("/r/", _FakeResponse(200, body={}, url="https://www.reddit.com/r/x/comments/y/z/")),
+            (".json", _FakeResponse(200, body=None)),  # no body => ValueError on .json()
+        ],
+    )
     out = _run(reddit.fetch_thread("https://www.reddit.com/r/x/comments/y/z/"))
     assert out["status"] == "error"
     assert "reddit json" in out["error"]

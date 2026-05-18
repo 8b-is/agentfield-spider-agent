@@ -14,6 +14,7 @@ the time a call arrives.
 The setup guide for "phone as 4G/5G proxy" (Termux SOCKS5, Tailscale
 egress node, or ssh -D) lives in ``docs/phone-as-proxy.md``.
 """
+
 from __future__ import annotations
 
 import os

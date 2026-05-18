@@ -4,6 +4,7 @@ Uses fakeredis for storage and a small fake aiohttp session that
 returns a canned RSS body. ``is_safe_external_url_with_dns`` is
 monkeypatched so we don't hit DNS in CI.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -19,15 +20,15 @@ def _run(coro: Any) -> Any:
 _RSS_BODY = (
     b'<?xml version="1.0" encoding="UTF-8"?>'
     b'<rss version="2.0"><channel>'
-    b'<title>Test</title><link>https://feed.example/</link>'
-    b'<description>t</description>'
-    b'<item>'
-    b'<title>A</title><link>https://a.example/post-1</link>'
-    b'</item>'
-    b'<item>'
-    b'<title>B</title><link>https://b.example/post-2</link>'
-    b'</item>'
-    b'</channel></rss>'
+    b"<title>Test</title><link>https://feed.example/</link>"
+    b"<description>t</description>"
+    b"<item>"
+    b"<title>A</title><link>https://a.example/post-1</link>"
+    b"</item>"
+    b"<item>"
+    b"<title>B</title><link>https://b.example/post-2</link>"
+    b"</item>"
+    b"</channel></rss>"
 )
 
 

@@ -5,6 +5,7 @@ Builds a minimal aiohttp application via ``spider.routes.register_routes``
 startup hook (which would create a real CloakBrowserPool) and runs each
 test fully offline.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -97,15 +98,21 @@ def test_fetch_sync_happy_path_returns_ok(make_deps, monkeypatch) -> None:
         return True
 
     async def _identity_redirect(
-        sess: Any, url: str, **kwargs: Any,
+        sess: Any,
+        url: str,
+        **kwargs: Any,
     ) -> str:  # noqa: ARG001
         return url
 
     monkeypatch.setattr(
-        fetch, "is_safe_external_url_with_dns", _allow_all,
+        fetch,
+        "is_safe_external_url_with_dns",
+        _allow_all,
     )
     monkeypatch.setattr(
-        fetch, "follow_safe_redirects", _identity_redirect,
+        fetch,
+        "follow_safe_redirects",
+        _identity_redirect,
     )
 
     deps, page = make_deps()
@@ -125,15 +132,15 @@ def test_fetch_sync_happy_path_returns_ok(make_deps, monkeypatch) -> None:
             assert "fetch_url" in body
             assert body["ms"] >= 0
         # The FakePage's goto was called with the input URL.
-        assert page.goto_calls and page.goto_calls[0][0] == (
-            "https://example.com/foo"
-        )
+        assert page.goto_calls and page.goto_calls[0][0] == ("https://example.com/foo")
 
     _run(_go())
 
 
 def test_fetch_sync_returns_204_on_empty_content(
-    make_deps, make_page, monkeypatch,
+    make_deps,
+    make_page,
+    monkeypatch,
 ) -> None:
     from spider import fetch
 
@@ -141,15 +148,21 @@ def test_fetch_sync_returns_204_on_empty_content(
         return True
 
     async def _identity_redirect(
-        sess: Any, url: str, **kwargs: Any,
+        sess: Any,
+        url: str,
+        **kwargs: Any,
     ) -> str:  # noqa: ARG001
         return url
 
     monkeypatch.setattr(
-        fetch, "is_safe_external_url_with_dns", _allow_all,
+        fetch,
+        "is_safe_external_url_with_dns",
+        _allow_all,
     )
     monkeypatch.setattr(
-        fetch, "follow_safe_redirects", _identity_redirect,
+        fetch,
+        "follow_safe_redirects",
+        _identity_redirect,
     )
 
     page = make_page(text="too short")  # < 100 chars triggers empty
@@ -170,7 +183,9 @@ def test_fetch_sync_returns_204_on_empty_content(
 
 
 def test_fetch_sync_returns_502_on_browser_error(
-    make_deps, make_page, monkeypatch,
+    make_deps,
+    make_page,
+    monkeypatch,
 ) -> None:
     from spider import fetch
 
@@ -178,15 +193,21 @@ def test_fetch_sync_returns_502_on_browser_error(
         return True
 
     async def _identity_redirect(
-        sess: Any, url: str, **kwargs: Any,
+        sess: Any,
+        url: str,
+        **kwargs: Any,
     ) -> str:  # noqa: ARG001
         return url
 
     monkeypatch.setattr(
-        fetch, "is_safe_external_url_with_dns", _allow_all,
+        fetch,
+        "is_safe_external_url_with_dns",
+        _allow_all,
     )
     monkeypatch.setattr(
-        fetch, "follow_safe_redirects", _identity_redirect,
+        fetch,
+        "follow_safe_redirects",
+        _identity_redirect,
     )
 
     page = make_page(goto_should_fail=True)
@@ -281,11 +302,13 @@ def test_feeds_add_list_delete(make_deps, fake_redis) -> None:
             # Add a feed.
             r = await client.post(
                 "/feeds",
-                data=orjson.dumps({
-                    "url": "https://feed.example/rss",
-                    "name": "test feed",
-                    "interval_s": 1800,
-                }),
+                data=orjson.dumps(
+                    {
+                        "url": "https://feed.example/rss",
+                        "name": "test feed",
+                        "interval_s": 1800,
+                    }
+                ),
                 headers={"Content-Type": "application/json"},
             )
             assert r.status == 200
@@ -357,13 +380,16 @@ def test_jobs_endpoint_returns_recorded(make_deps, fake_redis) -> None:
 
     async def _go() -> None:
         async with TestServer(app) as server:
-            await state.record_job(fake_redis, {
-                "id": "job1",
-                "url": "https://example.com/",
-                "status": "ok",
-                "ms": 100,
-                "ts": 1_700_000_000_000,
-            })
+            await state.record_job(
+                fake_redis,
+                {
+                    "id": "job1",
+                    "url": "https://example.com/",
+                    "status": "ok",
+                    "ms": 100,
+                    "ts": 1_700_000_000_000,
+                },
+            )
             async with TestClient(server) as client:
                 r = await client.get("/jobs?limit=10")
                 assert r.status == 200

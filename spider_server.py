@@ -25,12 +25,14 @@ This module is the production entry point. Tests construct their own
 app via ``spider.routes.register_routes`` so they don't run the
 startup hook.
 """
+
 from __future__ import annotations
 
 import asyncio
 import contextlib
 import logging
 import os
+from collections.abc import Awaitable
 
 import aiohttp
 import redis.asyncio as redis_asyncio
@@ -70,8 +72,11 @@ async def _on_startup(app: web.Application) -> None:
     bucket = HostBucket()
     sessions = SessionManager()
     deps = FetchDeps(
-        http=http, pool=pool, robots=robots,
-        bucket=bucket, sessions=sessions,
+        http=http,
+        pool=pool,
+        robots=robots,
+        bucket=bucket,
+        sessions=sessions,
     )
     app["http"] = http
     app["browser"] = pool
@@ -94,7 +99,11 @@ async def _on_startup(app: web.Application) -> None:
     logger.info("spider-http background tasks started")
 
 
-async def _cleanup_step(name: str, coro, timeout: float = 5.0) -> bool:
+async def _cleanup_step(
+    name: str,
+    coro: Awaitable[object],
+    timeout: float = 5.0,
+) -> bool:
     """Run one cleanup step with a hard timeout. Logs success or failure.
 
     Returns True if step completed cleanly within `timeout` seconds,
@@ -102,6 +111,7 @@ async def _cleanup_step(name: str, coro, timeout: float = 5.0) -> bool:
     proceed even if one step fails so we don't leak the rest.
     """
     import time
+
     started = time.perf_counter()
     try:
         await asyncio.wait_for(coro, timeout=timeout)
@@ -126,18 +136,21 @@ async def _on_cleanup(app: web.Application) -> None:
     prevent later steps from running.
     """
     import time
+
     cleanup_started = time.perf_counter()
     logger.info("spider-http cleanup begin")
 
     # 1. Cancel background tasks (cheap, ~instant)
     for key in ("dispatcher_task", "poller_task"):
-        t: asyncio.Task | None = app.get(key)
+        t: asyncio.Task[None] | None = app.get(key)
         if t is None or t.done():
             continue
         t.cancel()
-        async def _await_cancel(task=t):
+
+        async def _await_cancel(task: asyncio.Task[None] = t) -> None:
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await task
+
         await _cleanup_step(f"cancel.{key}", _await_cancel(), timeout=3.0)
 
     # 2. Sessions — close any open BrowserContexts before the pool
@@ -145,7 +158,9 @@ async def _on_cleanup(app: web.Application) -> None:
     sessions: SessionManager | None = app.get("sessions")
     if sessions is not None:
         await _cleanup_step(
-            "sessions.close_all", sessions.close_all(), timeout=5.0,
+            "sessions.close_all",
+            sessions.close_all(),
+            timeout=5.0,
         )
 
     # 3. Browser pool — slowest step (Chromium child may need 2-5s to die)

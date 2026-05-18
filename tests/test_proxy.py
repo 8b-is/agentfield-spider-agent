@@ -4,6 +4,7 @@ env_proxy() reads SPIDER_PROXY_URL; resolve_proxy() returns the
 per-call override if given, else the env, else None. Empty strings
 count as 'bypass'.
 """
+
 from __future__ import annotations
 
 from spider import proxy

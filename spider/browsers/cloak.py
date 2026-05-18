@@ -5,6 +5,7 @@ breaking existing imports). This module re-exports it under the
 ``CloakPool`` alias so callers can refer to ``spider.browsers.cloak``
 uniformly with ``spider.browsers.lightpanda``.
 """
+
 from __future__ import annotations
 
 from spider.browser import CloakBrowserPool

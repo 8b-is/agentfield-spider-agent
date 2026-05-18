@@ -5,6 +5,7 @@ around ``page.evaluate(js, ...)``. The fixtures in ``conftest.py``
 provide a ``FakePage`` that returns canned responses keyed by marker
 substrings in the JS source.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -39,7 +40,11 @@ def test_extract_structured_returns_shape(make_page) -> None:
     page = make_page()
     result = _run(extract_structured(page))
     assert set(result.keys()) >= {
-        "jsonld", "microdata", "opengraph", "links", "images",
+        "jsonld",
+        "microdata",
+        "opengraph",
+        "links",
+        "images",
     }
     assert isinstance(result["jsonld"], list)
     assert isinstance(result["opengraph"], dict)

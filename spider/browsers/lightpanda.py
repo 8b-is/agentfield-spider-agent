@@ -33,6 +33,7 @@ via ``proxy=true`` in the ``browser.opened`` log so operators can
 sanity-check, but switching proxies at lease time isn't possible —
 it'd mean restarting the Lightpanda container.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -42,23 +43,18 @@ import time
 from contextlib import AbstractAsyncContextManager
 from typing import Any
 
+from spider.errors import MissingPlaywrightError
 from spider.log import log
 from spider.proxy import env_proxy
 
 BROWSER_IDLE_S = int(os.environ.get("BROWSER_IDLE_S", "60"))
 LIGHTPANDA_CDP_URL = os.environ.get(
-    "LIGHTPANDA_CDP_URL", "http://lightpanda:9222",
+    "LIGHTPANDA_CDP_URL",
+    "http://lightpanda:9222",
 )
 LIGHTPANDA_CONNECT_TIMEOUT_MS = int(
     os.environ.get("LIGHTPANDA_CONNECT_TIMEOUT_MS", "30000"),
 )
-
-
-class MissingPlaywrightError(RuntimeError):
-    """Raised when playwright isn't importable.
-
-    Install: ``pip install agentfield-spider-agent[lightpanda]``
-    """
 
 
 class LightpandaPool:

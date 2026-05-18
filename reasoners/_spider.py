@@ -21,10 +21,11 @@ manifest does), `SPIDER_HTTP_URL=http://localhost:11700` is the right
 default. In docker compose, the agent service can reach the HTTP
 service via the bridge network (`http://spider-http:11700`).
 """
+
 from __future__ import annotations
 
 import os
-from typing import Any
+from typing import Any, cast
 
 import httpx
 
@@ -32,7 +33,7 @@ SPIDER_HTTP_URL = os.environ.get("SPIDER_HTTP_URL", "http://localhost:11700").rs
 TIMEOUT_S = float(os.environ.get("SPIDER_TIMEOUT_S", "60"))
 
 
-def _client_factory():
+def _client_factory() -> httpx.AsyncClient:
     """Return a fresh ``httpx.AsyncClient`` per call.
 
     Module-level test seams replace this attribute, so monkeypatching
@@ -40,6 +41,14 @@ def _client_factory():
     imported elsewhere.
     """
     return httpx.AsyncClient(timeout=TIMEOUT_S)
+
+
+def _response_json(response: httpx.Response) -> dict[str, Any]:
+    """Decode a JSON object body from the HTTP surface."""
+    data = response.json()
+    if isinstance(data, dict):
+        return cast(dict[str, Any], data)
+    return {"status": "error", "error": "non-object json response"}
 
 
 async def _fetch(
@@ -67,7 +76,7 @@ async def _fetch(
             if r.status_code == 204:
                 return {"status": "empty", "url": url}
             try:
-                return r.json()
+                return _response_json(r)
             except ValueError:
                 return {
                     "status": "error",
@@ -101,7 +110,7 @@ async def _feed_add(
         async with _client_factory() as client:
             r = await client.post(f"{SPIDER_HTTP_URL}/feeds", json=body)
             try:
-                payload = r.json()
+                payload = _response_json(r)
             except ValueError:
                 return {
                     "status": "error",
@@ -129,7 +138,7 @@ async def _feed_list() -> dict[str, Any]:
         async with _client_factory() as client:
             r = await client.get(f"{SPIDER_HTTP_URL}/feeds")
             try:
-                return r.json()
+                return _response_json(r)
             except ValueError:
                 return {
                     "status": "error",
@@ -148,7 +157,7 @@ async def _feed_remove(feed_id: str) -> dict[str, Any]:
         async with _client_factory() as client:
             r = await client.delete(f"{SPIDER_HTTP_URL}/feeds/{feed_id}")
             try:
-                payload = r.json()
+                payload = _response_json(r)
             except ValueError:
                 return {
                     "status": "error",
@@ -170,7 +179,7 @@ async def _feed_poll(feed_id: str) -> dict[str, Any]:
         async with _client_factory() as client:
             r = await client.post(f"{SPIDER_HTTP_URL}/feeds/{feed_id}/poll")
             try:
-                return r.json()
+                return _response_json(r)
             except ValueError:
                 return {
                     "status": "error",
@@ -189,7 +198,7 @@ async def _jobs_recent(limit: int = 50) -> dict[str, Any]:
         async with _client_factory() as client:
             r = await client.get(f"{SPIDER_HTTP_URL}/jobs?limit={limit}")
             try:
-                return r.json()
+                return _response_json(r)
             except ValueError:
                 return {
                     "status": "error",
@@ -221,7 +230,7 @@ async def _crawl(
         async with _client_factory() as client:
             r = await client.post(f"{SPIDER_HTTP_URL}/crawl", json=body)
             try:
-                return r.json()
+                return _response_json(r)
             except ValueError:
                 return {
                     "status": "error",
@@ -240,7 +249,7 @@ async def _crawl_status(job_id: str) -> dict[str, Any]:
         async with _client_factory() as client:
             r = await client.get(f"{SPIDER_HTTP_URL}/crawl/{job_id}")
             try:
-                return r.json()
+                return _response_json(r)
             except ValueError:
                 return {
                     "status": "error",
@@ -264,7 +273,7 @@ async def _sitemap_parse(
         async with _client_factory() as client:
             r = await client.post(f"{SPIDER_HTTP_URL}/sitemap/parse", json=body)
             try:
-                return r.json()
+                return _response_json(r)
             except ValueError:
                 return {
                     "status": "error",
@@ -287,7 +296,7 @@ async def _screenshot(
         async with _client_factory() as client:
             r = await client.post(f"{SPIDER_HTTP_URL}/screenshot", json=body)
             try:
-                return r.json()
+                return _response_json(r)
             except ValueError:
                 return {
                     "status": "error",
@@ -313,7 +322,7 @@ async def _extract(
         async with _client_factory() as client:
             r = await client.post(f"{SPIDER_HTTP_URL}/extract", json=body)
             try:
-                return r.json()
+                return _response_json(r)
             except ValueError:
                 return {
                     "status": "error",
@@ -327,12 +336,17 @@ async def _extract(
 
 
 __all__ = [
-    "_crawl", "_crawl_status",
+    "_crawl",
+    "_crawl_status",
     "_extract",
-    "_feed_add", "_feed_list", "_feed_poll", "_feed_remove",
+    "_feed_add",
+    "_feed_list",
+    "_feed_poll",
+    "_feed_remove",
     "_fetch",
     "_jobs_recent",
     "_screenshot",
     "_sitemap_parse",
-    "SPIDER_HTTP_URL", "TIMEOUT_S",
+    "SPIDER_HTTP_URL",
+    "TIMEOUT_S",
 ]

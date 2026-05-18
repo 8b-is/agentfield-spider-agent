@@ -4,6 +4,7 @@ The actual docling import + ML inference is heavy (~1.5 GB models on
 first run), so we mock it via ``sys.modules`` injection. URL + content-
 type detection are pure and don't need any mocking.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -55,7 +56,7 @@ def test_is_docling_url(url: str, expected: bool) -> None:
 
 def test_is_docling_url_non_string_returns_false() -> None:
     assert is_docling_url(None) is False  # type: ignore[arg-type]
-    assert is_docling_url(123) is False   # type: ignore[arg-type]
+    assert is_docling_url(123) is False  # type: ignore[arg-type]
 
 
 # ─── is_docling_content_type ────────────────────────────────────────
@@ -122,8 +123,9 @@ def test_fetch_via_docling_returns_error_when_docling_not_installed(
 
 
 # ─── fetch_via_docling: happy path with fake docling module ──────────
-def _install_fake_docling(monkeypatch, *, markdown: str, tables: list[str] | None = None,
-                          n_pages: int | None = None) -> None:
+def _install_fake_docling(
+    monkeypatch, *, markdown: str, tables: list[str] | None = None, n_pages: int | None = None
+) -> None:
     """Install a fake ``docling.document_converter`` module into sys.modules.
 
     The fake's DocumentConverter.convert() returns an object whose
@@ -201,6 +203,7 @@ def test_fetch_via_docling_uses_url_when_no_heading(monkeypatch) -> None:
 
 def test_fetch_via_docling_handles_parse_exception(monkeypatch) -> None:
     """Errors raised by docling during parsing land in the error envelope."""
+
     class _FailingConverter:
         def convert(self, url: str) -> Any:  # noqa: ARG002
             raise RuntimeError("encoding broke")
@@ -223,10 +226,12 @@ def test_fetch_via_docling_proxy_kwarg_logged_but_ignored(monkeypatch, caplog) -
     confirm the function still succeeds and a warning surfaces."""
     _install_fake_docling(monkeypatch, markdown="# Title\n\nBody.\n")
 
-    out = _run(fetch_via_docling(
-        "https://example.com/paper.pdf",
-        proxy="socks5://localhost:1080",
-    ))
+    out = _run(
+        fetch_via_docling(
+            "https://example.com/paper.pdf",
+            proxy="socks5://localhost:1080",
+        )
+    )
     assert out["status"] == "ok"
     # We don't assert on the log line — the log helper writes to a
     # named logger, capturing it would couple this test to log setup.

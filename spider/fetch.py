@@ -21,6 +21,7 @@ Async-queue plumbing (Redis queue + dispatcher worker + jobs ZSET) is
 out of scope for this module — that lands in PR 2 (``spider/queue.py``).
 PR 1 keeps the same fetch_one shape so PR 2 wraps it without churn.
 """
+
 from __future__ import annotations
 
 import re
@@ -32,14 +33,11 @@ from typing import Any
 
 import aiohttp
 
-from .browser import (
-    DISABLE_RESOURCES,
-    FETCH_TIMEOUT_MS,
-    NETWORK_IDLE,
-    CloakBrowserPool,
-)
+from .browser import DISABLE_RESOURCES, FETCH_TIMEOUT_MS, NETWORK_IDLE
+from .browsers.base import BrowserPool
+from .errors import outcome_from_exception
 from .extract import dismiss_banners, extract_title_text
-from .log import log
+from .log import log, log_exception
 from .politeness import HostBucket, RobotsCache, host_of
 from .security import follow_safe_redirects, is_safe_external_url_with_dns
 
@@ -58,7 +56,7 @@ class FetchDeps:
     """
 
     http: aiohttp.ClientSession
-    pool: CloakBrowserPool
+    pool: BrowserPool
     robots: RobotsCache
     bucket: HostBucket
     sessions: Any = None  # Optional[SessionManager]
@@ -72,13 +70,37 @@ _GH_REPO_RE = re.compile(
     r"^(https?://github\.com)/([^/?#]+)/([^/?#]+?)(?:\.git)?/?(?:[?#].*)?$",
     re.I,
 )
-_GH_NON_REPO_OWNERS = frozenset({
-    "trending", "search", "marketplace", "settings", "about", "pricing",
-    "topics", "explore", "features", "team", "enterprise", "events",
-    "customer-stories", "readme", "sponsors", "collections", "site",
-    "orgs", "organizations", "login", "join", "new", "issues", "pulls",
-    "notifications", "watching", "stars",
-})
+_GH_NON_REPO_OWNERS = frozenset(
+    {
+        "trending",
+        "search",
+        "marketplace",
+        "settings",
+        "about",
+        "pricing",
+        "topics",
+        "explore",
+        "features",
+        "team",
+        "enterprise",
+        "events",
+        "customer-stories",
+        "readme",
+        "sponsors",
+        "collections",
+        "site",
+        "orgs",
+        "organizations",
+        "login",
+        "join",
+        "new",
+        "issues",
+        "pulls",
+        "notifications",
+        "watching",
+        "stars",
+    }
+)
 
 
 @lru_cache(maxsize=2048)
@@ -171,7 +193,9 @@ async def fetch_one(
         return True
 
     final_url = await follow_safe_redirects(
-        deps.http, fetch_url, hop_policy=_hop_policy,
+        deps.http,
+        fetch_url,
+        hop_policy=_hop_policy,
     )
     if final_url is None:
         ms = int((time.perf_counter() - t0) * 1000)
@@ -220,19 +244,16 @@ async def fetch_one(
             title, text = await extract_title_text(page)
     except Exception as e:
         ms = int((time.perf_counter() - t0) * 1000)
-        err = f"{type(e).__name__}: {e}"
-        log("error", url=fetch_url, where="fetch", msg=err, ms=ms)
-        return {
-            **base,
-            "status": "error",
-            "error": err,
-            "ms": ms,
-        }
+        log_exception("error", e, url=fetch_url, where="fetch", ms=ms)
+        return outcome_from_exception(base, e, ms=ms)
 
     ms = int((time.perf_counter() - t0) * 1000)
     log(
-        "fetch", url=fetch_url, chars=len(text),
-        title=title or "(no title)", ms=ms,
+        "fetch",
+        url=fetch_url,
+        chars=len(text),
+        title=title or "(no title)",
+        ms=ms,
     )
 
     if not text or len(text) < 100:

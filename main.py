@@ -20,6 +20,7 @@ Environment:
   SPIDER_HTTP_URL       default: http://localhost:11700
   SPIDER_TIMEOUT_S      default: 60
 """
+
 from __future__ import annotations
 
 import logging
@@ -180,9 +181,11 @@ if __name__ == "__main__":
     # try/finally is belt-and-braces so we always log the lifecycle
     # boundary — SREs use the "stopping" log to correlate with k8s
     # rollout events and `docker compose stop` exit codes.
-    logger.info("spider-agent starting node_id=%s port=%s",
-                os.getenv("AGENT_NODE_ID", "spider-agent"),
-                os.getenv("PORT", "8005"))
+    logger.info(
+        "spider-agent starting node_id=%s port=%s",
+        os.getenv("AGENT_NODE_ID", "spider-agent"),
+        os.getenv("PORT", "8005"),
+    )
     try:
         app.run(
             host="0.0.0.0",
@@ -192,8 +195,7 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         logger.info("spider-agent stopping reason=SIGINT")
     except Exception as e:
-        logger.exception("spider-agent stopping reason=exception class=%s",
-                         type(e).__name__)
+        logger.exception("spider-agent stopping reason=exception class=%s", type(e).__name__)
         raise
     finally:
         logger.info("spider-agent stopped")
