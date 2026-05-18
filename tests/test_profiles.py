@@ -5,19 +5,19 @@ small dict-backed map of statement → response shapes, which covers the
 queries ProfileStore makes. Real-postgres integration testing happens
 via the smoke ladder against a docker compose stack.
 """
+
 from __future__ import annotations
 
 import asyncio
 import datetime as dt
 import io
 import json
-import uuid
 import zipfile
 from typing import Any
 
 import pytest
 
-from spider import profiles, storage
+from spider import storage
 from spider.profiles import ProfileInfo, ProfileStore, validate_zip
 
 
@@ -128,7 +128,7 @@ class _FakePool:
     def __init__(self) -> None:
         self.store: dict[str, dict[str, Any]] = {}
 
-    def acquire(self) -> "_FakeAcquireCM":
+    def acquire(self) -> _FakeAcquireCM:
         return _FakeAcquireCM(self.store)
 
 
@@ -139,7 +139,7 @@ class _FakeAcquireCM:
     async def __aenter__(self) -> _FakeConn:
         return _FakeConn(self._store)
 
-    async def __aexit__(self, *_: Any) -> None:
+    async def __aexit__(self, *_: object) -> None:
         return None
 
 

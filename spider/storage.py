@@ -31,6 +31,7 @@ inline as a single ``_SCHEMA_SQL`` blob run inside an ``IF NOT EXISTS``
 guard on every connect. Operators who want richer migrations can layer
 that on later.
 """
+
 from __future__ import annotations
 
 import os

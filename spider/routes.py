@@ -26,6 +26,7 @@ from typing import Any
 
 import orjson
 from aiohttp import web
+from aiohttp.multipart import BodyPartReader
 
 from . import feeds as feeds_mod
 from .crawl import crawl_start, crawl_status
@@ -655,8 +656,7 @@ async def profiles_list(request: web.Request) -> web.Response:
     """
     store = request.app.get("profiles")
     if store is None or not store.enabled:
-        return _json({"sessions": [], "error": "profiles disabled (no postgres)"},
-                     status=503)
+        return _json({"sessions": [], "error": "profiles disabled (no postgres)"}, status=503)
     limit = int(request.query.get("limit", "100") or "100")
     infos = await store.list(limit=limit)
     return _json({"profiles": [i.model_dump() for i in infos]})
@@ -694,9 +694,7 @@ async def profiles_fetch_zip(request: web.Request) -> web.Response:
         body=blob,
         content_type=_OCTET_STREAM,
         headers={
-            "Content-Disposition": (
-                f'attachment; filename="{name}.zip"'
-            ),
+            "Content-Disposition": (f'attachment; filename="{name}.zip"'),
         },
     )
 
@@ -732,7 +730,7 @@ async def profiles_add(request: web.Request) -> web.Response:
     ct = request.headers.get("Content-Type", "")
     name: str | None = None
     backend = "cloak"
-    storage_state: dict | None = None
+    storage_state: dict[str, Any] | None = None
     user_data_zip: bytes | None = None
     metadata: dict[str, Any] = {}
 
@@ -740,6 +738,8 @@ async def profiles_add(request: web.Request) -> web.Response:
         # Mode 2: multipart with file upload.
         reader = await request.multipart()
         async for part in reader:
+            if not isinstance(part, BodyPartReader):
+                continue
             if part.name == "name":
                 name = (await part.text()).strip()
             elif part.name == "backend":
@@ -766,7 +766,8 @@ async def profiles_add(request: web.Request) -> web.Response:
         if ss is not None:
             if not isinstance(ss, dict):
                 return _json(
-                    {"error": "storage_state must be an object"}, status=400,
+                    {"error": "storage_state must be an object"},
+                    status=400,
                 )
             storage_state = ss
         md = body.get("metadata") or {}
@@ -791,7 +792,8 @@ async def profiles_add(request: web.Request) -> web.Response:
         return _json({"error": str(e)}, status=400)
     except Exception as e:  # noqa: BLE001
         return _json(
-            {"error": f"{type(e).__name__}: {e}"}, status=502,
+            {"error": f"{type(e).__name__}: {e}"},
+            status=502,
         )
     return _json(info.model_dump(), status=200)
 
@@ -821,11 +823,13 @@ async def chrome_conn(request: web.Request) -> web.Response:
 
     url = browser_use_engine.get_chrome_cdp_url()
     alive, detail = await browser_use_engine.probe_chrome_alive()
-    return _json({
-        "status": "up" if alive else "down",
-        "cdp_url": url,
-        "detail": detail,
-    })
+    return _json(
+        {
+            "status": "up" if alive else "down",
+            "cdp_url": url,
+            "detail": detail,
+        }
+    )
 
 
 async def vnc_conn(request: web.Request) -> web.Response:
@@ -837,16 +841,18 @@ async def vnc_conn(request: web.Request) -> web.Response:
     """
     from .browsers import browser_use_engine
 
-    return _json({
-        "vnc_url": browser_use_engine.get_vnc_url(),
-        # Sidecar's web UI (web-ui project ships one on :8080).
-        "web_ui_url": browser_use_engine.BROWSER_USE_HTTP_URL,
-        "notes": (
-            "Open this URL in a VNC viewer. The browser-use sidecar's "
-            "web UI surfaces the live browser at "
-            f"{browser_use_engine.BROWSER_USE_HTTP_URL}."
-        ),
-    })
+    return _json(
+        {
+            "vnc_url": browser_use_engine.get_vnc_url(),
+            # Sidecar's web UI (web-ui project ships one on :8080).
+            "web_ui_url": browser_use_engine.BROWSER_USE_HTTP_URL,
+            "notes": (
+                "Open this URL in a VNC viewer. The browser-use sidecar's "
+                "web UI surfaces the live browser at "
+                f"{browser_use_engine.BROWSER_USE_HTTP_URL}."
+            ),
+        }
+    )
 
 
 # ─── registration ───────────────────────────────────────────────────

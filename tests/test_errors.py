@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from spider.errors import (
     RobotsBlockedError,
+    SpiderEmptyContentError,
     SpiderFetchError,
     SSRFBlockedError,
     outcome_from_exception,
@@ -33,3 +34,9 @@ def test_outcome_from_fetch_error() -> None:
     out = outcome_from_exception({}, SpiderFetchError("timeout"), ms=99)
     assert out["status"] == "error"
     assert out["error"] == "timeout"
+
+
+def test_outcome_from_empty_content() -> None:
+    out = outcome_from_exception({"url": "https://example.com"}, SpiderEmptyContentError(), ms=3)
+    assert out["status"] == "empty"
+    assert "error" not in out

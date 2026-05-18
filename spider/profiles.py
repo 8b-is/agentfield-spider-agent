@@ -39,6 +39,7 @@ API
   ProfileStore.delete(name) -> bool
   ProfileStore.touch(name) -> None
 """
+
 from __future__ import annotations
 
 import io
@@ -65,7 +66,7 @@ class ProfileInfo(BaseModel):
     has_user_data_zip: bool = False
     user_data_zip_bytes: int | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
-    created_at: str | None = None       # ISO-8601
+    created_at: str | None = None  # ISO-8601
     updated_at: str | None = None
     last_used: str | None = None
 
@@ -90,7 +91,7 @@ def _isofmt(v: Any) -> str | None:
     if v is None:
         return None
     if hasattr(v, "isoformat"):
-        return v.isoformat()
+        return str(v.isoformat())
     return str(v)
 
 
@@ -188,7 +189,8 @@ class ProfileStore:
             return None
         if isinstance(ss, str):
             try:
-                return json.loads(ss)
+                loaded = json.loads(ss)
+                return loaded if isinstance(loaded, dict) else None
             except json.JSONDecodeError:
                 return None
         return dict(ss)
@@ -228,8 +230,7 @@ class ProfileStore:
                 user_data_zip,
                 meta_json,
             )
-        log("profile", state="upserted", name=name, backend=backend,
-            has_zip=bool(user_data_zip))
+        log("profile", state="upserted", name=name, backend=backend, has_zip=bool(user_data_zip))
         return _row_to_info(row)
 
     # ─── delete ──────────────────────────────────────────────────────
@@ -254,8 +255,7 @@ class ProfileStore:
             async with self._pool.acquire() as conn:
                 await conn.execute(storage.SQL_PROFILE_TOUCH, name)
         except Exception as e:  # noqa: BLE001
-            log("profile", state="touch-error", name=name,
-                msg=f"{type(e).__name__}: {e}")
+            log("profile", state="touch-error", name=name, msg=f"{type(e).__name__}: {e}")
 
 
 __all__ = ["ProfileInfo", "ProfileStore", "validate_zip"]

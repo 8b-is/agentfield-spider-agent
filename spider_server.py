@@ -197,7 +197,9 @@ async def _on_cleanup(app: web.Application) -> None:
     pg_pool = app.get("pg_pool")
     if pg_pool is not None:
         await _cleanup_step(
-            "pg_pool.close", pg_storage.close(pg_pool), timeout=5.0,
+            "pg_pool.close",
+            pg_storage.close(pg_pool),
+            timeout=5.0,
         )
 
     total_ms = (time.perf_counter() - cleanup_started) * 1000

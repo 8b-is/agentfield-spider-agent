@@ -45,26 +45,30 @@ running the browser-use/web-ui sidecar can grab CDP / VNC URLs via
 spider-agent's HTTP API. Deeper integration (a ``browser_act`` skill
 that runs an Agent task) lands in the next PR.
 """
+
 from __future__ import annotations
 
 import os
 from typing import Any
 
-from ..log import log
-
+from spider.log import log
 
 # Env vars consumed here. Documented in .env.example.
 BROWSER_USE_CDP_URL = os.environ.get(
-    "BROWSER_USE_CDP_URL", "http://browser-use:9222",
+    "BROWSER_USE_CDP_URL",
+    "http://browser-use:9222",
 )
 BROWSER_USE_VNC_URL = os.environ.get(
-    "BROWSER_USE_VNC_URL", "vnc://browser-use:5900",
+    "BROWSER_USE_VNC_URL",
+    "vnc://browser-use:5900",
 )
 BROWSER_USE_HTTP_URL = os.environ.get(
-    "BROWSER_USE_HTTP_URL", "http://browser-use:8080",
+    "BROWSER_USE_HTTP_URL",
+    "http://browser-use:8080",
 )
 BROWSER_USE_DEFAULT_MODEL = os.environ.get(
-    "BROWSER_USE_DEFAULT_MODEL", "openai/gpt-4o",
+    "BROWSER_USE_DEFAULT_MODEL",
+    "openai/gpt-4o",
 )
 
 
