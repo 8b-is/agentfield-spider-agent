@@ -35,7 +35,16 @@ import aiohttp
 
 from .browser import DISABLE_RESOURCES, FETCH_TIMEOUT_MS, NETWORK_IDLE
 from .browsers.base import BrowserPool
-from .errors import outcome_from_exception
+from .errors import (
+    STATUS_OK,
+    RobotsBlockedError,
+    SpiderBlockedError,
+    SpiderEmptyContentError,
+    SpiderError,
+    SpiderFetchError,
+    SSRFBlockedError,
+    outcome_from_exception,
+)
 from .extract import dismiss_banners, extract_title_text
 from .log import log, log_exception
 from .politeness import HostBucket, RobotsCache, host_of
@@ -63,9 +72,6 @@ class FetchDeps:
 
 
 # ─── URL rewrites ────────────────────────────────────────────────────
-# GitHub repo URLs are heavy (~3 MB of HTML for chrome we don't index).
-# Redirect to the raw README first; the /raw/HEAD/README.md path
-# 302-redirects to raw.githubusercontent.com and the browser follows it.
 _GH_REPO_RE = re.compile(
     r"^(https?://github\.com)/([^/?#]+)/([^/?#]+?)(?:\.git)?/?(?:[?#].*)?$",
     re.I,
@@ -105,11 +111,7 @@ _GH_NON_REPO_OWNERS = frozenset(
 
 @lru_cache(maxsize=2048)
 def rewrite_url(url: str) -> tuple[str, str | None]:
-    """Return ``(effective_url, rewrite_kind | None)``.
-
-    Idempotent and deterministic. Currently only rewrites
-    ``github.com/<owner>/<repo>`` to its raw README.
-    """
+    """Return ``(effective_url, rewrite_kind | None)``."""
     m = _GH_REPO_RE.match(url)
     if m and m.group(2).lower() not in _GH_NON_REPO_OWNERS:
         host, owner, repo = m.group(1), m.group(2), m.group(3)
@@ -120,74 +122,35 @@ def rewrite_url(url: str) -> tuple[str, str | None]:
     return url, None
 
 
-# ─── core fetch ──────────────────────────────────────────────────────
-async def fetch_one(
+def _elapsed_ms(t0: float) -> int:
+    return int((time.perf_counter() - t0) * 1000)
+
+
+async def _fetch_one_core(
     deps: FetchDeps,
     url: str,
+    base: dict[str, Any],
+    t0: float,
     *,
     pool: Any = None,
     session_id: str | None = None,
 ) -> dict[str, Any]:
-    """Fetch a URL through the browser pool and return a job-record dict.
-
-    Always returns; never raises. Callers decide whether to surface an
-    error as a 4xx/5xx (sync surface) or just record it (async surface).
-
-    The ``pool`` kwarg overrides ``deps.pool`` for this call only —
-    used by the dispatcher to render through an alternate backend
-    (e.g. Lightpanda) without persistent reconfiguration. The pool
-    must satisfy the ``spider.browsers.BrowserPool`` Protocol.
-
-    Return shape::
-
-        {
-            "id": <12-char job id>,
-            "url": <original url>,
-            "fetch_url": <after rewrite + redirect resolution>,
-            "status": "ok" | "empty" | "blocked-by-ssrf-gate"
-                    | "blocked-by-robots" | "error",
-            "title": <str | None>,    # only when status == "ok"
-            "text": <str | None>,     # only when status == "ok"
-            "ms": <int milliseconds>,
-            "ts": <int ms-epoch>,
-            "error": <str | None>,    # only when status == "error" or
-                                       # blocked-*
-        }
-    """
-    job_id = uuid.uuid4().hex[:12]
-    t0 = time.perf_counter()
-    ts = int(time.time() * 1000)
-    base: dict[str, Any] = {
-        "id": job_id,
-        "url": url,
-        "ts": ts,
-    }
-
-    # URL rewrite (idempotent).
+    """Run the fetch pipeline; raises ``SpiderError`` subclasses on policy failures."""
     fetch_url, rewrite_kind = rewrite_url(url)
     base["fetch_url"] = fetch_url
     if rewrite_kind:
         log("rewrite", from_=url, to=fetch_url, kind=rewrite_kind)
 
-    # Layer-2 SSRF gate on the (possibly rewritten) URL.
     if not await is_safe_external_url_with_dns(fetch_url):
-        ms = int((time.perf_counter() - t0) * 1000)
-        log("ssrf", url=fetch_url, ms=ms)
-        return {
-            **base,
-            "status": "blocked-by-ssrf-gate",
-            "error": "url failed SSRF gate",
-            "ms": ms,
-        }
+        log("ssrf", url=fetch_url, ms=_elapsed_ms(t0))
+        raise SSRFBlockedError()
 
-    # Pre-walk redirect chain. Every hop runs the SSRF gate; the
-    # hop_policy callback adds robots + per-host bucket checks so the
-    # walker observes the same politeness policy as the browser fetch.
-    robots_blocked = {"url": ""}
+    robots_blocked_url = ""
 
     async def _hop_policy(hop_url: str) -> bool:
+        nonlocal robots_blocked_url
         if not await deps.robots.allowed(hop_url):
-            robots_blocked["url"] = hop_url
+            robots_blocked_url = hop_url
             return False
         await deps.bucket.acquire(host_of(hop_url))
         return True
@@ -198,37 +161,22 @@ async def fetch_one(
         hop_policy=_hop_policy,
     )
     if final_url is None:
-        ms = int((time.perf_counter() - t0) * 1000)
-        if robots_blocked["url"]:
-            log("robots", url=robots_blocked["url"], blocked=True, ms=ms)
-            return {
-                **base,
-                "status": "blocked-by-robots",
-                "error": "blocked by robots.txt",
-                "ms": ms,
-            }
+        ms = _elapsed_ms(t0)
+        if robots_blocked_url:
+            log("robots", url=robots_blocked_url, blocked=True, ms=ms)
+            raise RobotsBlockedError()
         log("ssrf", url=fetch_url, reason="redirect", ms=ms)
-        return {
-            **base,
-            "status": "blocked-by-ssrf-gate",
-            "error": "url failed SSRF gate (redirect)",
-            "ms": ms,
-        }
+        raise SSRFBlockedError("url failed SSRF gate (redirect)")
+
     if final_url != fetch_url:
         log("redirect-resolved", from_=fetch_url, to=final_url)
         fetch_url = final_url
         base["fetch_url"] = fetch_url
 
-    # The hop_policy already acquired a bucket token for the final
-    # URL's host (the walker's own GET consumed it). Acquire one more
-    # token for the actual browser fetch.
     await deps.bucket.acquire(host_of(fetch_url))
 
     active_pool = pool if pool is not None else deps.pool
 
-    # Lease selection:
-    #   - session_id + SessionManager available -> use that session's context
-    #   - otherwise -> anonymous lease from the pool
     try:
         if session_id and deps.sessions is not None:
             lease_cm = deps.sessions.lease_page(session_id, pool=active_pool)
@@ -242,12 +190,12 @@ async def fetch_one(
             )
             await dismiss_banners(page)
             title, text = await extract_title_text(page)
+    except SpiderError:
+        raise
     except Exception as e:
-        ms = int((time.perf_counter() - t0) * 1000)
-        log_exception("error", e, url=fetch_url, where="fetch", ms=ms)
-        return outcome_from_exception(base, e, ms=ms)
+        raise SpiderFetchError(f"{type(e).__name__}: {e}") from e
 
-    ms = int((time.perf_counter() - t0) * 1000)
+    ms = _elapsed_ms(t0)
     log(
         "fetch",
         url=fetch_url,
@@ -257,25 +205,59 @@ async def fetch_one(
     )
 
     if not text or len(text) < 100:
-        return {
-            **base,
-            "status": "empty",
-            "ms": ms,
-        }
+        raise SpiderEmptyContentError()
 
     return {
         **base,
-        "status": "ok",
+        "status": STATUS_OK,
         "title": title or None,
         "text": text,
         "ms": ms,
     }
 
 
-# Keep DISABLE_RESOURCES on the public surface in case the CloakBrowser
-# wrapper accepts it as a launch arg in a later version (used to thread
-# through to Scrapling's resource-blocking). v1 doesn't actively pass
-# it but documenting the env knob keeps deploy/k3s ConfigMap stable.
+async def fetch_one(
+    deps: FetchDeps,
+    url: str,
+    *,
+    pool: Any = None,
+    session_id: str | None = None,
+) -> dict[str, Any]:
+    """Fetch a URL through the browser pool and return a job-record dict.
+
+    Always returns; never raises.
+    """
+    job_id = uuid.uuid4().hex[:12]
+    t0 = time.perf_counter()
+    base: dict[str, Any] = {
+        "id": job_id,
+        "url": url,
+        "ts": int(time.time() * 1000),
+    }
+
+    try:
+        return await _fetch_one_core(
+            deps,
+            url,
+            base,
+            t0,
+            pool=pool,
+            session_id=session_id,
+        )
+    except SpiderBlockedError as e:
+        ms = _elapsed_ms(t0)
+        log_exception("blocked", e, url=base.get("fetch_url", url), ms=ms)
+        return outcome_from_exception(base, e, ms=ms)
+    except SpiderError as e:
+        ms = _elapsed_ms(t0)
+        log_exception("fetch-outcome", e, url=base.get("fetch_url", url), ms=ms)
+        return outcome_from_exception(base, e, ms=ms)
+    except Exception as e:
+        ms = _elapsed_ms(t0)
+        log_exception("error", e, url=base.get("fetch_url", url), where="fetch", ms=ms)
+        return outcome_from_exception(base, e, ms=ms)
+
+
 _ = DISABLE_RESOURCES
 
 

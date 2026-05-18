@@ -109,7 +109,7 @@ disallow_untyped_decorators = false  # aiohttp/agentfield decorators are dynamic
 # per-module here — keeps the strict gate over NEW modules while we
 # migrate the older ones over time.
 [[tool.mypy.overrides]]
-module = ["spider.crawl", "spider.feeds", "spider.queue", "spider.routes", "spider.sinks.*"]
+module = ["spider.crawl", "spider.feeds", "spider.queue", "spider.sinks.*"]
 disallow_untyped_defs = false
 
 # ─── pyright ─────────────────────────────────────────────────────────
@@ -126,6 +126,10 @@ strict = [
     "spider/dispatch.py",
     "spider/proxy.py",
     "spider/fetchers/**",
+    "spider/errors.py",
+    "spider/fetch.py",
+    "spider/log.py",
+    "spider/profiles.py",
 ]
 reportImplicitOverride = "warning"
 reportUnknownArgumentType = "none"     # too noisy with dynamic libs
