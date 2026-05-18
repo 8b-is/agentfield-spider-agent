@@ -42,7 +42,7 @@ jobs:
         run: uv run mypy spider/ main.py spider_server.py reasoners/
 
       - name: Compose syntax
-        run: docker compose config > /dev/null
+        run: cp .env.example .env && docker compose config > /dev/null
 
   test:
     name: test
