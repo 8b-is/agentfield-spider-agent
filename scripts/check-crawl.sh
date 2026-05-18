@@ -13,7 +13,7 @@ echo "═══ E. POST ${BASE_URL}/crawl (seed=${TARGET}, max_pages=${MAX_PAGES
 START_RESP=$(hcurl -X POST \
     -H 'Content-Type: application/json' \
     -d "$(jq -nc --arg u "$TARGET" --arg n "$MAX_PAGES" \
-        '{seed_url:$u, max_depth:1, max_pages:($n|tonumber), same_domain_only:true}')" \
+        '{url:$u, max_depth:1, max_pages:($n|tonumber), same_domain_only:true}')" \
     "${BASE_URL}/crawl" || echo '{}')
 
 JOB_ID=$(echo "$START_RESP" | jq -r '.job_id // empty')

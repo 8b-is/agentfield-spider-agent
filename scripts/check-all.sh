@@ -1,17 +1,22 @@
 #!/usr/bin/env bash
-# Run all 5 spider-agent live smoke checks in sequence.
+# Run all 6 spider-agent live smoke checks in sequence.
 # Each prints PASS / WARN / FAIL; first FAIL exits non-zero.
 #
 # Override targets:
-#   SMOKE_FETCH_URL=...      (default: https://example.com)
-#   SMOKE_SITEMAP_URL=...    (default: https://www.sitemaps.org/sitemap.xml)
-#   SMOKE_CRAWL_URL=...      (default: https://example.com)
-#   SMOKE_CRAWL_MAX_PAGES=N  (default: 3)
-#   SMOKE_CRAWL_TIMEOUT_S=N  (default: 60)
+#   SMOKE_FETCH_URL=...       (default: https://example.com)
+#   SMOKE_SITEMAP_URLS=u1,u2  (multi-target; defaults to a curated list of
+#                              our regularly-crawled domains)
+#   SMOKE_SITEMAP_URL=...     (single override, legacy)
+#   SMOKE_CRAWL_URL=...       (default: https://example.com)
+#   SMOKE_CRAWL_MAX_PAGES=N   (default: 3)
+#   SMOKE_CRAWL_TIMEOUT_S=N   (default: 60)
+#   SMOKE_SINK_URL=...        (chromadb-sink target page, default example.com)
 #
 # Skip individual checks:
-#   SKIP_CRAWL=1 ./check-all.sh         # skip the longest one
+#   SKIP_CRAWL=1 ./check-all.sh    # skip the longest one (needs CloakBrowser)
 #   SKIP_SITEMAP=1 ./check-all.sh
+#   SKIP_SINK=1 ./check-all.sh     # skip chromadb (auto-skips if SPIDER_SINK_ENABLED unset)
+#   SKIP_MULTI=1 ./check-all.sh    # sitemap runs only the reference target
 
 set -euo pipefail
 
@@ -38,6 +43,14 @@ if [[ "${SKIP_CRAWL:-0}" == "1" ]]; then
     echo "SKIP: SKIP_CRAWL=1"
 else
     "$SCRIPT_DIR/check-crawl.sh"
+fi
+echo
+
+if [[ "${SKIP_SINK:-0}" == "1" ]]; then
+    echo "═══ F. chromadb sink ═══"
+    echo "SKIP: SKIP_SINK=1"
+else
+    "$SCRIPT_DIR/check-chroma-sink.sh"
 fi
 
 echo

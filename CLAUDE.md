@@ -86,6 +86,30 @@ Default if you're unsure: `spider-agent` for "scrape N pages",
   compose).
 - k3s: two containers in one pod, see `deploy/k3s/`.
 
+## Known half-built: crawl worker loop (TODO before relying on /crawl)
+
+`POST /crawl` creates a job + enqueues its seed URL into
+`crawler:crawl:{job_id}:queue`, and `spider/crawl.py:crawl_iter()`
+implements one tick of the worker loop. **Nothing actually invokes
+crawl_iter in a loop** as of the May 18 extension — jobs sit in
+`status: "queued"` indefinitely. Verified locally: CloakBrowser
+downloaded + initialized OK, but the dispatcher never picks the job up.
+
+Fix needed: either
+1. In `spider_server.py`, on aiohttp app startup, `asyncio.create_task(
+   _crawl_dispatcher_loop(app))` that scans for any
+   `crawler:crawl:*:queue` keys and calls `crawl_iter` per active job
+   in a polite loop (same pattern as the existing async-fetch
+   dispatcher for `crawler:queue`), OR
+2. The compose architecture assumes `main.py` (the AF skill agent)
+   hosts the dispatcher. If so: confirm in main.py + document the
+   service split: HTTP-only spider_server can ACCEPT crawl jobs but
+   not EXECUTE them.
+
+Until this is fixed, the `scripts/check-crawl.sh` smoke will TIMEOUT
+against any seed URL. Other surfaces (`/fetch/sync`, `/sitemap/parse`,
+`/feeds`, `/jobs`, `/screenshot`, `/extract`) are unaffected.
+
 ## Hard rejections
 
 - Topic-driven crawling, search-engine fan-out, reranker scoring — those
