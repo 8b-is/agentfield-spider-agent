@@ -192,7 +192,7 @@ async def fetch_issue(url: str, *, proxy: str | None = None) -> dict[str, Any]:
     title = (issue_json.get("title") or "").strip()
     state = issue_json.get("state") or "?"
     labels = [
-        (label or {}).get("name", "") for label in (issue_json.get("labels") or [])
+        (label_obj or {}).get("name", "") for label_obj in (issue_json.get("labels") or [])
     ]
     body = (issue_json.get("body") or "").strip()
     body_excerpt = first_meaningful_paragraph(body) if body else ""
