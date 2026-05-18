@@ -80,27 +80,71 @@ async def _on_startup(app: web.Application) -> None:
     logger.info("spider-http background tasks started")
 
 
+async def _cleanup_step(name: str, coro, timeout: float = 5.0) -> bool:
+    """Run one cleanup step with a hard timeout. Logs success or failure.
+
+    Returns True if step completed cleanly within `timeout` seconds,
+    False if it timed out or raised. Never re-raises — cleanup must
+    proceed even if one step fails so we don't leak the rest.
+    """
+    import time
+    started = time.perf_counter()
+    try:
+        await asyncio.wait_for(coro, timeout=timeout)
+        elapsed_ms = (time.perf_counter() - started) * 1000
+        logger.info("cleanup.%s ok elapsed_ms=%.0f", name, elapsed_ms)
+        return True
+    except asyncio.TimeoutError:
+        logger.warning("cleanup.%s TIMEOUT after %.1fs", name, timeout)
+        return False
+    except Exception as e:
+        logger.warning("cleanup.%s error %s: %s", name, type(e).__name__, e)
+        return False
+
+
 async def _on_cleanup(app: web.Application) -> None:
-    """Cancel background tasks, then release deps in reverse order."""
+    """Cancel background tasks, then release deps in reverse order.
+
+    Each step is wrapped in a hard timeout so a hung browser child /
+    flaky redis connection can't block past docker's stop_grace_period
+    (set to 30s in docker-compose.yml; we target <20s here so SIGKILL
+    has a buffer). Steps that fail or time out are logged but don't
+    prevent later steps from running.
+    """
+    import time
+    cleanup_started = time.perf_counter()
+    logger.info("spider-http cleanup begin")
+
+    # 1. Cancel background tasks (cheap, ~instant)
     for key in ("dispatcher_task", "poller_task"):
         t: asyncio.Task | None = app.get(key)
-        if t is not None and not t.done():
-            t.cancel()
+        if t is None or t.done():
+            continue
+        t.cancel()
+        async def _await_cancel(task=t):
             try:
-                await t
+                await task
             except (asyncio.CancelledError, Exception):
                 pass
+        await _cleanup_step(f"cancel.{key}", _await_cancel(), timeout=3.0)
 
+    # 2. Browser pool — slowest step (Chromium child may need 2-5s to die)
     pool: CloakBrowserPool | None = app.get("browser")
     if pool is not None:
-        await pool.shutdown()
+        await _cleanup_step("browser.shutdown", pool.shutdown(), timeout=10.0)
+
+    # 3. Redis — should be near-instant; longer timeout is paranoia
     r = app.get("redis")
     if r is not None:
-        await r.aclose()
+        await _cleanup_step("redis.aclose", r.aclose(), timeout=3.0)
+
+    # 4. aiohttp ClientSession — close all keep-alive conns
     http: aiohttp.ClientSession | None = app.get("http")
     if http is not None:
-        await http.close()
-    logger.info("spider-http deps released")
+        await _cleanup_step("http.close", http.close(), timeout=5.0)
+
+    total_ms = (time.perf_counter() - cleanup_started) * 1000
+    logger.info("spider-http cleanup done total_ms=%.0f", total_ms)
 
 
 def build_app() -> web.Application:

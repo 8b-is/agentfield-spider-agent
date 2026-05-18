@@ -13,4 +13,11 @@ COPY reasoners ./reasoners
 COPY spider ./spider
 
 EXPOSE 8005 11700
+
+# Explicit STOPSIGNAL — docker defaults to SIGTERM but stating it lets
+# operators (and future Dockerfile readers) know we rely on it. Python
+# isn't PID 1 in some orchestrators; if you wrap with tini/dumb-init,
+# they forward SIGTERM correctly.
+STOPSIGNAL SIGTERM
+
 CMD ["python", "main.py"]

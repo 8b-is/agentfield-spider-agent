@@ -16,6 +16,9 @@ services:
     ports:
       - "8005:8005"
     restart: unless-stopped
+    # SIGTERM → app.run() exits → try/finally logs "stopped". 30s
+    # gives the AgentField runner time to unregister cleanly.
+    stop_grace_period: 30s
 
   spider-http:
     build: .
@@ -30,6 +33,11 @@ services:
     ports:
       - "11700:11700"
     restart: unless-stopped
+    # 30s for aiohttp cleanup chain (cancel tasks → close browser →
+    # close redis → close http). Each step has a per-step timeout in
+    # spider_server.py:_on_cleanup; total target ≤20s, the extra
+    # margin keeps a slow Chromium child from triggering SIGKILL.
+    stop_grace_period: 30s
 
   redis:
     image: redis:7-alpine
@@ -41,6 +49,8 @@ services:
       interval: 10s
       timeout: 3s
       retries: 5
+    # Redis flushes its AOF / saves on SIGTERM; 15s is generous.
+    stop_grace_period: 15s
 
 networks:
   my-agent_default:
