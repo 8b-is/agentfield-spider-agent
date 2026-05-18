@@ -11,7 +11,7 @@ from spider.fetch import FetchDeps
 
 
 @pytest.mark.asyncio
-async def test_crawl_start(mock_redis_dict: dict):
+async def test_crawl_start():
     """Test crawl job creation."""
     from unittest.mock import AsyncMock
     redis = AsyncMock()
@@ -34,7 +34,7 @@ async def test_crawl_start(mock_redis_dict: dict):
 
 
 @pytest.mark.asyncio
-async def test_crawl_status(mock_redis_dict: dict):
+async def test_crawl_status():
     """Test fetching crawl status."""
     from unittest.mock import AsyncMock
     redis = AsyncMock()
@@ -55,7 +55,7 @@ async def test_crawl_status(mock_redis_dict: dict):
 
 
 @pytest.mark.asyncio
-async def test_crawl_status_not_found(mock_redis_dict: dict):
+async def test_crawl_status_not_found():
     """Test status for non-existent job."""
     from unittest.mock import AsyncMock
     redis = AsyncMock()

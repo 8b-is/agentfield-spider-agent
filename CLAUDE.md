@@ -86,22 +86,6 @@ Default if you're unsure: `spider-agent` for "scrape N pages",
   compose).
 - k3s: two containers in one pod, see `deploy/k3s/`.
 
-## Known broken tests (TODO before relying on crawl/sitemap in prod)
-
-Five test failures in the May 2026 extension (crawl + sitemap + sink +
-new AF skills). Other 86 tests pass. Triage:
-
-| Test | Cause | Fix |
-|---|---|---|
-| `test_crawl.py::test_crawl_{start,status,status_not_found}` (3 errors) | References a `mock_redis_dict` fixture that doesn't exist in conftest.py. The tests create their own `AsyncMock` internally so the fixture parameter is dead. | Remove the `mock_redis_dict` arg from those 3 test signatures. |
-| `test_crawl.py::test_extract_links` | `_extract_links()` in `spider/crawl.py:92` returns a list that doesn't contain the absolute-resolved URL the test expects. Either BeautifulSoup is parsing the malformed test HTML differently than expected, or the urljoin produces an unexpected form. | Run `_extract_links(<test html>, "https://example.com")` interactively; compare to assertion. May need to use `bs4`'s `lxml` parser instead of `html.parser`, or fix the test's HTML to be well-formed. |
-| `test_sitemap.py::test_sitemap_parse_basic` | `sitemap_parse()` in `spider/sitemap.py:16` returns 0 URLs from a well-formed sitemap. Likely an XML namespace handling bug in the `findall` path — the namespace map lookup works for root but may fail for nested element querying. | Add a print of `root.tag` and the actual `findall` results to debug. Validate against a real sitemap.xml (e.g. https://www.sitemaps.org/sitemap.xml) before promoting. |
-
-The crawl + sitemap features are wired end-to-end (HTTP routes, AF
-skills, Redis state, integration with the existing fetch pipeline)
-and were submitted for live operator verification. They are not
-production-ready until the above tests pass.
-
 ## Hard rejections
 
 - Topic-driven crawling, search-engine fan-out, reranker scoring — those
