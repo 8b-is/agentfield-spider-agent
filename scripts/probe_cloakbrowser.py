@@ -44,6 +44,7 @@ If you see a non-zero exit, the fix is almost always confined to
 ``spider/browser.py`` — that's the abstraction layer for exactly this
 kind of API drift.
 """
+
 from __future__ import annotations
 
 import asyncio

@@ -5,9 +5,9 @@ Public surface:
 - crawl_status(redis, job_id) -> dict with status, counts, errors
 - crawl_iter(deps, redis, job_id) -> one iteration of the crawler loop (called by dispatcher)
 """
+
 from __future__ import annotations
 
-import asyncio
 import time
 import uuid
 from typing import Any
@@ -18,14 +18,25 @@ import orjson
 from .fetch import FetchDeps, fetch_one
 from .log import log
 from .security import is_safe_external_url
-from .state import enqueue as state_enqueue
 
 # Redis key patterns
 _JOB_PREFIX = "crawler:crawl"
-_QUEUE_KEY = lambda job_id: f"{_JOB_PREFIX}:{job_id}:queue"
-_VISITED_KEY = lambda job_id: f"{_JOB_PREFIX}:{job_id}:visited"
-_STATE_KEY = lambda job_id: f"{_JOB_PREFIX}:{job_id}:state"
-_RESULTS_KEY = lambda job_id: f"{_JOB_PREFIX}:{job_id}:results"
+
+
+def _QUEUE_KEY(job_id: str) -> str:
+    return f"{_JOB_PREFIX}:{job_id}:queue"
+
+
+def _VISITED_KEY(job_id: str) -> str:
+    return f"{_JOB_PREFIX}:{job_id}:visited"
+
+
+def _STATE_KEY(job_id: str) -> str:
+    return f"{_JOB_PREFIX}:{job_id}:state"
+
+
+def _RESULTS_KEY(job_id: str) -> str:
+    return f"{_JOB_PREFIX}:{job_id}:results"
 
 
 async def crawl_start(
@@ -94,9 +105,11 @@ def _extract_links(text: str, base_url: str) -> list[str]:
     links = []
     try:
         from bs4 import BeautifulSoup
+
         soup = BeautifulSoup(text, "html.parser")
         for a in soup.find_all("a", href=True):
-            href = a["href"].strip()
+            raw_href = a.get("href")
+            href = str(raw_href).strip() if raw_href else ""
             if href and not href.startswith(("#", "javascript:", "mailto:", "tel:")):
                 absolute = urljoin(base_url, href)
                 # Drop fragment

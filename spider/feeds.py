@@ -12,13 +12,14 @@ politeness pipeline as direct ``/fetch`` calls.
 Ported from rag-stack/scripts/crawler.py lines 790-927 with topic
 polling removed; the loop is now feed-only.
 """
+
 from __future__ import annotations
 
 import asyncio
 import os
 import time
 import uuid
-from typing import Any
+from typing import Any, cast
 
 import aiohttp
 import feedparser
@@ -59,7 +60,9 @@ async def feed_add(
     await redis.hset(K_FEEDS, feed_id, orjson.dumps(feed))
     log(
         "feed+",
-        id=feed_id, url=url, interval_s=feed["interval_s"],
+        id=feed_id,
+        url=url,
+        interval_s=feed["interval_s"],
     )
     return feed
 
@@ -91,7 +94,7 @@ async def feed_get(redis: Any, feed_id: str) -> dict[str, Any] | None:
     if raw is None:
         return None
     try:
-        return orjson.loads(raw)
+        return cast(dict[str, Any], orjson.loads(raw))
     except orjson.JSONDecodeError:
         return None
 
@@ -139,19 +142,27 @@ async def poll_feed(
             if 300 <= resp.status < 400:
                 ms = int((time.perf_counter() - t0) * 1000)
                 log(
-                    "feed.redirect-blocked", id=feed_id, url=url,
+                    "feed.redirect-blocked",
+                    id=feed_id,
+                    url=url,
                     status=resp.status,
-                    location=resp.headers.get("Location", ""), ms=ms,
+                    location=resp.headers.get("Location", ""),
+                    ms=ms,
                 )
                 return {
-                    "new": 0, "found": 0, "status": resp.status,
+                    "new": 0,
+                    "found": 0,
+                    "status": resp.status,
                     "error": "feed url returned redirect",
                 }
             if resp.status == 304:
                 feed["last_polled"] = int(time.time())
                 await redis.hset(K_FEEDS, feed_id, orjson.dumps(feed))
                 log(
-                    "feed", id=feed_id, url=url, status=304,
+                    "feed",
+                    id=feed_id,
+                    url=url,
+                    status=304,
                     ms=int((time.perf_counter() - t0) * 1000),
                 )
                 return {"new": 0, "found": 0, "status": 304}
@@ -190,8 +201,13 @@ async def poll_feed(
 
     ms = int((time.perf_counter() - t0) * 1000)
     log(
-        "feed", id=feed_id, url=url, status=status,
-        found=len(entries), new=new, ms=ms,
+        "feed",
+        id=feed_id,
+        url=url,
+        status=status,
+        found=len(entries),
+        new=new,
+        ms=ms,
     )
     return {"new": new, "found": len(entries), "status": status}
 
@@ -223,11 +239,7 @@ async def poller(http: aiohttp.ClientSession, redis: Any) -> None:
                     last = int(feed.get("last_polled", 0))
                     due = last + interval
                     if due <= now:
-                        fid = (
-                            fid_b.decode("ascii")
-                            if isinstance(fid_b, bytes)
-                            else str(fid_b)
-                        )
+                        fid = fid_b.decode("ascii") if isinstance(fid_b, bytes) else str(fid_b)
                         await poll_feed(http, redis, fid, feed)
                     elif due < next_due:
                         next_due = due
@@ -250,7 +262,13 @@ async def poller(http: aiohttp.ClientSession, redis: Any) -> None:
 
 
 __all__ = [
-    "DEFAULT_INTERVAL", "POLL_TICK_MAX", "POLL_TICK_MIN",
-    "feed_add", "feed_del", "feed_get", "feed_list",
-    "poll_feed", "poller",
+    "DEFAULT_INTERVAL",
+    "POLL_TICK_MAX",
+    "POLL_TICK_MIN",
+    "feed_add",
+    "feed_del",
+    "feed_get",
+    "feed_list",
+    "poll_feed",
+    "poller",
 ]

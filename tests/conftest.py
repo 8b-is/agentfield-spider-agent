@@ -11,10 +11,11 @@ HGETALL / HDEL / HGET / SADD / SREM / SCARD / SISMEMBER / SRANDMEMBER /
 LPUSH / LLEN / LTRIM / BRPOP / ZADD / ZCARD / ZREVRANGE /
 ZREMRANGEBYRANK).
 """
+
 from __future__ import annotations
 
 import contextlib
-from typing import Any
+from typing import Any, Self
 
 import pytest
 
@@ -101,10 +102,10 @@ class FakeResponse:
         self.status = status
         self.headers = headers or {}
 
-    async def __aenter__(self) -> "FakeResponse":
+    async def __aenter__(self) -> Self:
         return self
 
-    async def __aexit__(self, *_: Any) -> None:
+    async def __aexit__(self, *_: object) -> None:
         return None
 
 
@@ -156,7 +157,7 @@ def make_page():
             responses["const sel = args.selector"] = "_"
         else:
             # Fallback removal counts as "0 removed".
-            responses["[id*=\"cookie\"]"] = 0
+            responses['[id*="cookie"]'] = 0
         return FakePage(
             evaluate_responses=responses,
             goto_should_fail=goto_should_fail,

@@ -44,20 +44,20 @@ For now, sessions live in memory only. Container restart drops them.
 A v2 enhancement will optionally persist `storage_state.json` per
 session under a configurable volume so logged-in state survives.
 """
+
 from __future__ import annotations
 
 import asyncio
 import os
 import time
 import uuid
-from contextlib import asynccontextmanager
-from dataclasses import dataclass, field
+from contextlib import asynccontextmanager, suppress
+from dataclasses import dataclass
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 from .log import log
-
 
 # ─── env knobs ──────────────────────────────────────────────────────
 MAX_SESSIONS: int = int(os.environ.get("SPIDER_MAX_SESSIONS", "100"))
@@ -78,6 +78,7 @@ class SessionInfo(BaseModel):
     switch the default backend in env, existing sessions become
     inaccessible (they get evicted on next sweep).
     """
+
     id: str
     name: str | None = None
     backend: str = "cloak"
@@ -95,9 +96,10 @@ class Session:
     Decoupled because the context can't go through Pydantic / JSON
     serialization.
     """
+
     info: SessionInfo
-    context: Any                 # Playwright BrowserContext
-    pool_ref: Any = None         # Used to detect "did the pool change?"
+    context: Any  # Playwright BrowserContext
+    pool_ref: Any = None  # Used to detect "did the pool change?"
 
 
 # ─── manager ────────────────────────────────────────────────────────
@@ -152,9 +154,7 @@ class SessionManager:
         # paths; the bump keeps the ordering well-defined.
         now = int(time.time() * 1000)
         if self._sessions:
-            max_existing = max(
-                s.info.last_used for s in self._sessions.values()
-            )
+            max_existing = max(s.info.last_used for s in self._sessions.values())
             now = max(now, max_existing + 1)
 
         # Open the browser if it isn't already, and reach into its
@@ -200,8 +200,7 @@ class SessionManager:
         """Snapshot of all session infos, newest-touched first."""
         now = int(time.time() * 1000)
         valid = [
-            s.info for s in self._sessions.values()
-            if (now - s.info.last_used) / 1000 < self._ttl_s
+            s.info for s in self._sessions.values() if (now - s.info.last_used) / 1000 < self._ttl_s
         ]
         valid.sort(key=lambda i: i.last_used, reverse=True)
         return valid
@@ -215,7 +214,9 @@ class SessionManager:
             await s.context.close()
         except Exception as e:  # pragma: no cover
             log(
-                "session", state="close-error", id=session_id,
+                "session",
+                state="close-error",
+                id=session_id,
                 msg=f"{type(e).__name__}: {e}",
             )
         else:
@@ -228,10 +229,8 @@ class SessionManager:
             sessions = list(self._sessions.values())
             self._sessions.clear()
         for s in sessions:
-            try:
+            with suppress(Exception):  # pragma: no cover
                 await s.context.close()
-            except Exception:  # pragma: no cover
-                pass
 
     @asynccontextmanager
     async def lease_page(
@@ -280,10 +279,8 @@ class SessionManager:
         try:
             yield page
         finally:
-            try:
+            with suppress(Exception):  # pragma: no cover
                 await page.close()
-            except Exception:  # pragma: no cover
-                pass
 
     async def _evict_locked(self) -> None:
         """Enforce the hard cap. Caller MUST hold ``self._lock``.
@@ -301,10 +298,8 @@ class SessionManager:
                 key=lambda k: self._sessions[k].info.last_used,
             )
             s = self._sessions.pop(lru_id)
-            try:
+            with suppress(Exception):  # pragma: no cover
                 await s.context.close()
-            except Exception:  # pragma: no cover
-                pass
             log("session", state="evicted-lru", id=lru_id)
 
 

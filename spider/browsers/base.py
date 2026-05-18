@@ -9,6 +9,7 @@ The contract is intentionally small — lease a page, shutdown the
 pool — so adding a third backend (Puppeteer, vanilla Playwright,
 Camoufox) only needs these two methods.
 """
+
 from __future__ import annotations
 
 from contextlib import AbstractAsyncContextManager

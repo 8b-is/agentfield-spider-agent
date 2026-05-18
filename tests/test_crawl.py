@@ -1,19 +1,22 @@
 """Tests for crawl module."""
+
 from __future__ import annotations
 
-import orjson
 import pytest
 
 from spider.crawl import (
-    crawl_iter, crawl_start, crawl_status, _extract_links, _same_domain,
+    _extract_links,
+    _same_domain,
+    crawl_start,
+    crawl_status,
 )
-from spider.fetch import FetchDeps
 
 
 @pytest.mark.asyncio
 async def test_crawl_start():
     """Test crawl job creation."""
     from unittest.mock import AsyncMock
+
     redis = AsyncMock()
     redis.hset = AsyncMock()
     redis.delete = AsyncMock()
@@ -37,15 +40,18 @@ async def test_crawl_start():
 async def test_crawl_status():
     """Test fetching crawl status."""
     from unittest.mock import AsyncMock
+
     redis = AsyncMock()
-    redis.hgetall = AsyncMock(return_value={
-        b"status": b"queued",
-        b"seed_url": b"https://example.com",
-        b"pages_fetched": b"0",
-        b"pages_queued": b"1",
-        b"error_count": b"0",
-        b"started_at": b"123.45",
-    })
+    redis.hgetall = AsyncMock(
+        return_value={
+            b"status": b"queued",
+            b"seed_url": b"https://example.com",
+            b"pages_fetched": b"0",
+            b"pages_queued": b"1",
+            b"error_count": b"0",
+            b"started_at": b"123.45",
+        }
+    )
 
     status = await crawl_status(redis, "job-123")
 
@@ -58,6 +64,7 @@ async def test_crawl_status():
 async def test_crawl_status_not_found():
     """Test status for non-existent job."""
     from unittest.mock import AsyncMock
+
     redis = AsyncMock()
     redis.hgetall = AsyncMock(return_value={})
 

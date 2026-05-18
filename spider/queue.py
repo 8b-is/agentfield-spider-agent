@@ -12,6 +12,7 @@ Ported from rag-stack/scripts/crawler.py lines 731-789 with the topic
 quality-gate plumbing removed (jobs only carry ``status`` /
 ``error`` / ``score`` when set by the fetch pipeline itself).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -63,7 +64,8 @@ async def run_and_record(
     standalone tests of the fetch pipeline alone).
     """
     result = await dispatch_fetch(
-        deps, url,
+        deps,
+        url,
         use_browser=use_browser,
         proxy=proxy,
         browser=browser,
@@ -113,7 +115,7 @@ async def dispatcher(deps: FetchDeps, redis: Any) -> None:
     and re-raises so the lifecycle hook unwinds cleanly.
     """
     sem = asyncio.Semaphore(CRAWL_CONCURRENCY)
-    pending: set[asyncio.Task] = set()
+    pending: set[asyncio.Task[None]] = set()
     log("dispatcher", state="ready", concurrency=CRAWL_CONCURRENCY)
     try:
         while True:

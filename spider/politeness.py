@@ -4,6 +4,7 @@ Ported from rag-stack/scripts/crawler.py (lines 427-511) without
 behavior changes. Both classes are intentionally self-contained — no
 imports from the rest of ``spider/`` — so they're easy to unit-test.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -54,13 +55,12 @@ class RobotsCache:
     __slots__ = ("_entries", "_sess")
 
     def __init__(self, sess: aiohttp.ClientSession) -> None:
-        self._entries: dict[
-            str, tuple[float, urllib.robotparser.RobotFileParser | None]
-        ] = {}
+        self._entries: dict[str, tuple[float, urllib.robotparser.RobotFileParser | None]] = {}
         self._sess = sess
 
     async def _load(
-        self, host: str,
+        self,
+        host: str,
     ) -> urllib.robotparser.RobotFileParser | None:
         rp = urllib.robotparser.RobotFileParser()
         url = f"https://{host}/robots.txt"
@@ -122,7 +122,9 @@ class HostBucket:
             return
         if host not in self._state:
             self._state[host] = [
-                float(HOST_BURST), time.monotonic(), asyncio.Lock(),
+                float(HOST_BURST),
+                time.monotonic(),
+                asyncio.Lock(),
             ]
         st = self._state[host]
         async with st[2]:

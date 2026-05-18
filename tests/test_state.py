@@ -1,11 +1,9 @@
 """Redis state helpers — verified against fakeredis."""
+
 from __future__ import annotations
 
 import asyncio
 from typing import Any
-
-import orjson
-import pytest
 
 from spider import state
 
@@ -65,13 +63,16 @@ def test_record_job_round_trip(fake_redis) -> None:
 def test_recent_jobs_sorts_newest_first(fake_redis) -> None:
     async def _go():
         for i in range(3):
-            await state.record_job(fake_redis, {
-                "id": f"j{i}",
-                "url": "https://example.com/",
-                "status": "ok",
-                "ms": 1,
-                "ts": 1_700_000_000_000 + i,
-            })
+            await state.record_job(
+                fake_redis,
+                {
+                    "id": f"j{i}",
+                    "url": "https://example.com/",
+                    "status": "ok",
+                    "ms": 1,
+                    "ts": 1_700_000_000_000 + i,
+                },
+            )
         recent = await state.recent_jobs(fake_redis, limit=10)
         assert [j["id"] for j in recent] == ["j2", "j1", "j0"]
 
@@ -81,10 +82,16 @@ def test_recent_jobs_sorts_newest_first(fake_redis) -> None:
 def test_recent_jobs_limit_clamps_to_bounds(fake_redis) -> None:
     async def _go():
         for i in range(5):
-            await state.record_job(fake_redis, {
-                "id": f"j{i}", "url": "u", "status": "ok",
-                "ms": 1, "ts": i + 1,
-            })
+            await state.record_job(
+                fake_redis,
+                {
+                    "id": f"j{i}",
+                    "url": "u",
+                    "status": "ok",
+                    "ms": 1,
+                    "ts": i + 1,
+                },
+            )
         # 0 -> 1 (clamped to minimum)
         assert len(await state.recent_jobs(fake_redis, limit=0)) == 1
         # 1000 -> 500 (clamped to max)

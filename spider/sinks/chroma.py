@@ -13,15 +13,16 @@ Public surface:
 - should_sink() -> bool
 - sink_fetch_outcome(http, outcome_dict) -> bool (True if sunk, False if skipped/error)
 """
+
 from __future__ import annotations
 
 import hashlib
 import os
-from typing import Any
+from typing import Any, cast
 
 import aiohttp
 
-from ..log import log
+from spider.log import log
 
 SINK_ENABLED = os.environ.get("SPIDER_SINK_ENABLED", "").lower() == "1"
 SINK_CHROMA_URL = os.environ.get("SPIDER_SINK_CHROMA_URL", "").rstrip("/")
@@ -48,9 +49,10 @@ async def _embed_sentence_transformers(texts: list[str]) -> list[list[float]]:
     """Embed text using sentence-transformers (local, no network)."""
     try:
         from sentence_transformers import SentenceTransformer
+
         model = SentenceTransformer("all-MiniLM-L6-v2")
-        embeddings = model.encode(texts, convert_to_numpy=True).tolist()
-        return embeddings
+        encoded = model.encode(texts, convert_to_numpy=True).tolist()
+        return cast(list[list[float]], encoded)
     except Exception as e:
         log("sink.embed_error", mode="sentence-transformers", error=str(e))
         return [[0.0] * 384 for _ in texts]  # Fallback: zero vectors
@@ -93,8 +95,7 @@ async def _get_embeddings(texts: list[str]) -> list[list[float]]:
     """Get embeddings based on configured mode."""
     if SINK_EMBEDDINGS_MODE == "openai":
         return await _embed_openrouter(texts)
-    else:
-        return await _embed_sentence_transformers(texts)
+    return await _embed_sentence_transformers(texts)
 
 
 async def sink_fetch_outcome(
@@ -155,15 +156,14 @@ async def sink_fetch_outcome(
             if resp.status in (200, 201):
                 log("sink.ok", url=url, doc_id=doc_id)
                 return True
-            else:
-                text_resp = await resp.text()
-                log(
-                    "sink.error",
-                    url=url,
-                    status=resp.status,
-                    response=text_resp[:200],
-                )
-                return False
+            text_resp = await resp.text()
+            log(
+                "sink.error",
+                url=url,
+                status=resp.status,
+                response=text_resp[:200],
+            )
+            return False
 
     except Exception as e:
         # Log but never fail the primary fetch

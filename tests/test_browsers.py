@@ -4,6 +4,7 @@ LightpandaPool is exercised via an injected ``connect_factory`` so
 the tests never depend on playwright being installed or on a real
 Lightpanda CDP server.
 """
+
 from __future__ import annotations
 
 import asyncio

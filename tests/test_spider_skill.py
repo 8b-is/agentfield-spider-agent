@@ -5,13 +5,12 @@ construction. The httpx client is replaced with a small fake that
 records calls + returns canned responses, so no real socket is
 opened.
 """
+
 from __future__ import annotations
 
 import asyncio
 import json
-from typing import Any
-
-import pytest
+from typing import Any, Self
 
 from reasoners import _spider
 
@@ -27,9 +26,7 @@ class _FakeAsyncResponse:
         self.status_code = status_code
         self._body = body or {}
         self._raise_json = raise_json
-        self.text = (
-            "<not-json>" if raise_json else json.dumps(self._body)
-        )
+        self.text = "<not-json>" if raise_json else json.dumps(self._body)
 
     def json(self) -> Any:
         if self._raise_json:
@@ -49,10 +46,10 @@ class _FakeAsyncClient:
         self._responses = list(responses)
         self.calls: list[tuple[str, dict]] = []
 
-    async def __aenter__(self) -> "_FakeAsyncClient":
+    async def __aenter__(self) -> Self:
         return self
 
-    async def __aexit__(self, *_: Any) -> None:
+    async def __aexit__(self, *_: object) -> None:
         return None
 
     async def post(self, url: str, json: dict | None = None, **kwargs: Any) -> _FakeAsyncResponse:
@@ -92,7 +89,8 @@ def test_fetch_sync_posts_to_fetch_sync_and_returns_body(monkeypatch) -> None:
 
 def test_fetch_async_posts_to_fetch_path(monkeypatch) -> None:
     fake = _patch_client(
-        monkeypatch, [_FakeAsyncResponse(200, {"queued": True, "url": "https://x"})],
+        monkeypatch,
+        [_FakeAsyncResponse(200, {"queued": True, "url": "https://x"})],
     )
     result = _run(_spider._fetch("https://x", sync=False))
     assert result == {"queued": True, "url": "https://x"}
@@ -119,10 +117,10 @@ def test_fetch_handles_transport_error(monkeypatch) -> None:
     import httpx
 
     class _RaisingClient:
-        async def __aenter__(self) -> "_RaisingClient":
+        async def __aenter__(self) -> Self:
             return self
 
-        async def __aexit__(self, *_: Any) -> None:
+        async def __aexit__(self, *_: object) -> None:
             return None
 
         async def post(self, url: str, **kwargs: Any) -> Any:  # noqa: ARG002
@@ -144,9 +142,13 @@ def test_feed_add_posts_with_optional_fields(monkeypatch) -> None:
         "last_polled": 0,
     }
     fake = _patch_client(monkeypatch, [_FakeAsyncResponse(200, payload)])
-    result = _run(_spider._feed_add(
-        "https://feed.example/rss", interval_s=1800, name="feed",
-    ))
+    result = _run(
+        _spider._feed_add(
+            "https://feed.example/rss",
+            interval_s=1800,
+            name="feed",
+        )
+    )
     assert result["id"] == "abcdef01"
     body = fake.calls[0][1]
     assert body == {
@@ -170,10 +172,10 @@ def test_feed_add_handles_transport_error(monkeypatch) -> None:
     import httpx
 
     class _RaisingClient:
-        async def __aenter__(self) -> "_RaisingClient":
+        async def __aenter__(self) -> Self:
             return self
 
-        async def __aexit__(self, *_: Any) -> None:
+        async def __aexit__(self, *_: object) -> None:
             return None
 
         async def post(self, url: str, **kwargs: Any) -> Any:  # noqa: ARG002

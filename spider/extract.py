@@ -21,6 +21,7 @@ All three return Python data structures via ``page.evaluate``, which
 CloakBrowser inherits from Playwright. No Scrapling-specific CSS
 selectors.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -44,8 +45,7 @@ _COOKIE_RULES: list[dict[str, str]] = [
     {
         "name": "cookiebot",
         "selector": (
-            "#CybotCookiebotDialogBodyButtonAccept, "
-            "#CybotCookiebotDialogBodyLevelButtonAccept"
+            "#CybotCookiebotDialogBodyButtonAccept, #CybotCookiebotDialogBodyLevelButtonAccept"
         ),
         "button": "",
         "action": "click",
@@ -94,9 +94,7 @@ _COOKIE_RULES: list[dict[str, str]] = [
     },
     {
         "name": "simple_remove",
-        "selector": (
-            "#cookie-banner, .cookie-banner, .cookie-consent, .gdpr-banner"
-        ),
+        "selector": ("#cookie-banner, .cookie-banner, .cookie-consent, .gdpr-banner"),
         "button": "",
         "action": "remove",
     },
@@ -277,9 +275,7 @@ async def dismiss_banners(page: Any) -> bool:
                 continue
             continue
         labels = (
-            [s.strip() for s in rule["button"].split(",") if s.strip()]
-            if rule["button"]
-            else []
+            [s.strip() for s in rule["button"].split(",") if s.strip()] if rule["button"] else []
         )
         try:
             matched = await page.evaluate(
@@ -322,7 +318,7 @@ async def extract_title_text(page: Any) -> tuple[str, str]:
     return title, text
 
 
-async def extract_structured(page: Any) -> dict:
+async def extract_structured(page: Any) -> dict[str, Any]:
     """Return ``{jsonld, microdata, opengraph, links, images}``.
 
     Ported from the Go spider's dom_crawler.go. Single round-trip;
@@ -333,13 +329,19 @@ async def extract_structured(page: Any) -> dict:
     except Exception as e:  # pragma: no cover
         log("structured", state="error", msg=f"{type(e).__name__}: {e}")
         return {
-            "jsonld": [], "microdata": [], "opengraph": {},
-            "links": [], "images": [],
+            "jsonld": [],
+            "microdata": [],
+            "opengraph": {},
+            "links": [],
+            "images": [],
         }
     if not isinstance(result, dict):
         return {
-            "jsonld": [], "microdata": [], "opengraph": {},
-            "links": [], "images": [],
+            "jsonld": [],
+            "microdata": [],
+            "opengraph": {},
+            "links": [],
+            "images": [],
         }
     # Defensive normalisation — page.evaluate output is JSON-ish but
     # the test fakes may return slightly different shapes.

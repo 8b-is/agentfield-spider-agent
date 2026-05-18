@@ -20,6 +20,7 @@ A residual DNS-rebinding TOCTOU window remains between this resolve and
 the actual TCP connect. The proper TOCTOU-free fix is a custom aiohttp
 Resolver — out of scope for v1.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -31,23 +32,25 @@ from urllib.parse import urlparse
 
 # Hostnames that resolve to internal services. Kept as a frozenset
 # because the lookup is hot (every fetch).
-_BLOCKED_HOSTNAMES: frozenset[str] = frozenset({
-    "localhost",
-    "ip6-localhost",
-    "ip6-loopback",
-    "host.docker.internal",
-    # fleet service names (compose / k8s aliases)
-    "control-plane",
-    "spider-agent",
-    "spider-http",
-    "web-search-agent",
-    "my-agent",
-    "pr-enricher-agent",
-    "data-engineer-agent",
-    "redis",
-    "postgres",
-    "ollama",
-})
+_BLOCKED_HOSTNAMES: frozenset[str] = frozenset(
+    {
+        "localhost",
+        "ip6-localhost",
+        "ip6-loopback",
+        "host.docker.internal",
+        # fleet service names (compose / k8s aliases)
+        "control-plane",
+        "spider-agent",
+        "spider-http",
+        "web-search-agent",
+        "my-agent",
+        "pr-enricher-agent",
+        "data-engineer-agent",
+        "redis",
+        "postgres",
+        "ollama",
+    }
+)
 
 
 def is_safe_external_url(url: str) -> bool:
@@ -67,9 +70,7 @@ def is_safe_external_url(url: str) -> bool:
         return False
 
     try:
-        ip: ipaddress.IPv4Address | ipaddress.IPv6Address | None = (
-            ipaddress.ip_address(host)
-        )
+        ip: ipaddress.IPv4Address | ipaddress.IPv6Address | None = ipaddress.ip_address(host)
     except ValueError:
         ip = None
 
@@ -96,8 +97,12 @@ def _ip_is_unsafe(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped:
         ip = ip.ipv4_mapped
     return (
-        ip.is_loopback or ip.is_private or ip.is_link_local
-        or ip.is_multicast or ip.is_reserved or ip.is_unspecified
+        ip.is_loopback
+        or ip.is_private
+        or ip.is_link_local
+        or ip.is_multicast
+        or ip.is_reserved
+        or ip.is_unspecified
     )
 
 
@@ -202,7 +207,9 @@ async def follow_safe_redirects(
         try:
             timeout = aiohttp.ClientTimeout(total=per_hop_timeout_s)
             async with sess.get(
-                current, allow_redirects=False, timeout=timeout,
+                current,
+                allow_redirects=False,
+                timeout=timeout,
             ) as r:
                 status = r.status
                 if 300 <= status < 400:

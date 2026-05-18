@@ -3,6 +3,7 @@
 Public surface:
 - sitemap_parse(http, url, max_urls, queue, redis) -> dict with discovered URLs
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -25,7 +26,7 @@ async def sitemap_parse(
     Recurses one level into sitemap indices. Returns dict with:
     {url, urls: [...], queued: bool, count}
     """
-    urls = []
+    urls: list[str] = []
     errors = []
 
     async def _fetch_and_parse(sitemap_url: str, depth: int = 0) -> None:
@@ -34,11 +35,13 @@ async def sitemap_parse(
             return
 
         try:
-            async with http.get(
-                sitemap_url,
-                timeout=30,
-                allow_redirects=True,  # aiohttp's kwarg name (httpx uses follow_redirects — different API)
-            ) as resp:
+            async with (
+                http.get(
+                    sitemap_url,
+                    timeout=30,
+                    allow_redirects=True,  # aiohttp's kwarg name (httpx uses follow_redirects — different API)
+                ) as resp
+            ):
                 if resp.status != 200:
                     errors.append(f"HTTP {resp.status} from {sitemap_url}")
                     return

@@ -17,8 +17,10 @@ The handlers stay thin — they delegate to ``spider/{state,feeds,queue}``
 so the AgentField surface (PR 3) can reuse the same helpers without
 going through HTTP.
 """
+
 from __future__ import annotations
 
+import contextlib
 import os
 from typing import Any
 
@@ -26,17 +28,20 @@ import orjson
 from aiohttp import web
 
 from . import feeds as feeds_mod
-from .crawl import crawl_iter, crawl_start, crawl_status
+from .crawl import crawl_start, crawl_status
 from .fetch import FetchDeps
 from .log import log
 from .queue import run_and_record
 from .security import is_safe_external_url
 from .sitemap import sitemap_parse
-from .sinks.chroma import should_sink, sink_fetch_outcome
 from .state import (
-    enqueue, feeds_count, jobs_count, queue_depth, recent_jobs, seen_count,
+    enqueue,
+    feeds_count,
+    jobs_count,
+    queue_depth,
+    recent_jobs,
+    seen_count,
 )
-
 
 _CONTENT_JSON = "application/json"
 _OCTET_STREAM = "application/octet-stream"
@@ -50,7 +55,7 @@ def _json(obj: Any, status: int = 200) -> web.Response:
     )
 
 
-async def _read_json(request: web.Request) -> tuple[dict | None, str | None]:
+async def _read_json(request: web.Request) -> tuple[dict[str, Any] | None, str | None]:
     """Parse the request body as JSON; return ``(payload, error)``.
 
     Used by every POST handler so the error shape is consistent.
@@ -77,9 +82,7 @@ async def health(request: web.Request) -> web.Response:
     pool = request.app.get("browser")
     browser_state = "absent"
     if pool is not None:
-        browser_state = (
-            "open" if getattr(pool, "_browser", None) is not None else "closed"
-        )
+        browser_state = "open" if getattr(pool, "_browser", None) is not None else "closed"
 
     redis = request.app.get("redis")
     counts: dict[str, Any] = {}
@@ -94,13 +97,15 @@ async def health(request: web.Request) -> web.Response:
         except Exception as e:  # pragma: no cover
             counts = {"error": f"{type(e).__name__}: {e}"}
 
-    return _json({
-        "ok": True,
-        "service": "spider-http",
-        "browser": browser_state,
-        "fetch_timeout_ms": int(os.environ.get("FETCH_TIMEOUT_MS", "30000")),
-        **counts,
-    })
+    return _json(
+        {
+            "ok": True,
+            "service": "spider-http",
+            "browser": browser_state,
+            "fetch_timeout_ms": int(os.environ.get("FETCH_TIMEOUT_MS", "30000")),
+            **counts,
+        }
+    )
 
 
 # ─── /fetch + /fetch/sync ───────────────────────────────────────────
@@ -175,24 +180,29 @@ async def fetch_sync(request: web.Request) -> web.Response:
     proxy_override = (payload or {}).get("proxy")
     if proxy_override is not None and not isinstance(proxy_override, str):
         return _json(
-            {"error": "proxy must be a string if provided"}, status=400,
+            {"error": "proxy must be a string if provided"},
+            status=400,
         )
     browser_override = (payload or {}).get("browser")
     if browser_override is not None and not isinstance(browser_override, str):
         return _json(
-            {"error": "browser must be a string if provided"}, status=400,
+            {"error": "browser must be a string if provided"},
+            status=400,
         )
     session_id = (payload or {}).get("session_id")
     if session_id is not None and not isinstance(session_id, str):
         return _json(
-            {"error": "session_id must be a string if provided"}, status=400,
+            {"error": "session_id must be a string if provided"},
+            status=400,
         )
 
     deps: FetchDeps = request.app["deps"]
     redis = request.app.get("redis")
     try:
         result = await run_and_record(
-            deps, redis, url,
+            deps,
+            redis,
+            url,
             source="api-sync",
             use_browser=use_browser,
             proxy=proxy_override,
@@ -365,10 +375,8 @@ async def crawl_results(request: web.Request) -> web.Response:
     results_raw = await redis.lrange(results_key, 0, -1)
     results = []
     for item in results_raw:
-        try:
+        with contextlib.suppress(Exception):
             results.append(orjson.loads(item))
-        except Exception:
-            pass
 
     return _json({"job_id": job_id, "count": len(results), "results": results})
 
@@ -440,6 +448,7 @@ async def screenshot(request: web.Request) -> web.Response:
         full_page = str(full_page).lower() in ("true", "1", "yes")
 
     import time
+
     t0 = time.perf_counter()
 
     try:
@@ -447,6 +456,7 @@ async def screenshot(request: web.Request) -> web.Response:
             await page.goto(url, wait_until="networkidle")
             png_bytes = await page.screenshot(full_page=full_page)
             import base64
+
             png_b64 = base64.b64encode(png_bytes).decode("utf-8")
 
             ms = int((time.perf_counter() - t0) * 1000)
@@ -486,6 +496,7 @@ async def extract(request: web.Request) -> web.Response:
     attr = (payload or {}).get("attr")
 
     import time
+
     t0 = time.perf_counter()
 
     try:
@@ -554,8 +565,7 @@ async def sessions_create(request: web.Request) -> web.Response:
         return _json({"error": "user_agent must be a string"}, status=400)
     viewport = body.get("viewport")
     if viewport is not None and (
-        not isinstance(viewport, dict)
-        or "width" not in viewport or "height" not in viewport
+        not isinstance(viewport, dict) or "width" not in viewport or "height" not in viewport
     ):
         return _json(
             {"error": "viewport must be {width: int, height: int}"},
@@ -564,11 +574,15 @@ async def sessions_create(request: web.Request) -> web.Response:
 
     # Backend selection: default to the primary pool, allow override.
     from .browsers import get_or_create_pool, normalize_backend
+
     backend_kwarg = body.get("backend")
     if backend_kwarg is not None and not isinstance(backend_kwarg, str):
         return _json({"error": "backend must be a string"}, status=400)
     backend = normalize_backend(backend_kwarg)
     deps: FetchDeps = request.app["deps"]
+    from .browsers.base import BrowserPool
+
+    pool: BrowserPool
     if backend == _primary_backend_for(deps):
         pool = deps.pool
     else:
@@ -585,7 +599,8 @@ async def sessions_create(request: web.Request) -> web.Response:
         )
     except Exception as e:
         return _json(
-            {"error": f"{type(e).__name__}: {e}"}, status=502,
+            {"error": f"{type(e).__name__}: {e}"},
+            status=502,
         )
     return _json(info.model_dump(), status=200)
 
@@ -869,11 +884,19 @@ def register_routes(app: web.Application) -> None:
 
 
 __all__ = [
-    "crawl", "crawl_results", "crawl_status_route",
+    "crawl",
+    "crawl_results",
+    "crawl_status_route",
     "extract",
-    "feeds_add", "feeds_del", "feeds_get", "feeds_list", "feeds_poll",
-    "fetch_async", "fetch_sync",
-    "health", "jobs",
+    "feeds_add",
+    "feeds_del",
+    "feeds_get",
+    "feeds_list",
+    "feeds_poll",
+    "fetch_async",
+    "fetch_sync",
+    "health",
+    "jobs",
     "register_routes",
     "screenshot",
     "sitemap_handler",

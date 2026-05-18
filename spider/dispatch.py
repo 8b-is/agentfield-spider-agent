@@ -28,6 +28,7 @@ backend renders: ``browser="cloak"`` (default, stealth Chromium) or
 through ``spider/browsers/get_or_create_pool`` which lazy-instantiates
 the alternate pool on first use, so the unused backend has zero cost.
 """
+
 from __future__ import annotations
 
 import re
@@ -38,13 +39,14 @@ from .browsers import Backend, get_or_create_pool, normalize_backend
 from .docling_parser import fetch_via_docling, is_docling_url
 from .fetch import FetchDeps, fetch_one
 
-
 # ─── classification ──────────────────────────────────────────────────
 _GH_ISSUE_RE = re.compile(
-    r"^https?://github\.com/[^/]+/[^/]+/issues/\d+", re.I,
+    r"^https?://github\.com/[^/]+/[^/]+/issues/\d+",
+    re.I,
 )
 _GH_REPO_RE = re.compile(
-    r"^https?://github\.com/[^/]+/[^/]+/?(?:[?#].*)?$", re.I,
+    r"^https?://github\.com/[^/]+/[^/]+/?(?:[?#].*)?$",
+    re.I,
 )
 _HN_RE = re.compile(r"^https?://news\.ycombinator\.com/", re.I)
 _REDDIT_RE = re.compile(r"^https?://(?:www\.|old\.)?reddit\.com/", re.I)
@@ -110,7 +112,10 @@ async def dispatch_fetch(
 
     if use_browser:
         return await _run_browser_path(
-            deps, url, backend=chosen_backend, session_id=session_id,
+            deps,
+            url,
+            backend=chosen_backend,
+            session_id=session_id,
         )
 
     kind = classify(url)
@@ -126,7 +131,10 @@ async def dispatch_fetch(
         return await fetch_via_docling(url, proxy=proxy)
     # ``generic`` -> browser-rendered path.
     return await _run_browser_path(
-        deps, url, backend=chosen_backend, session_id=session_id,
+        deps,
+        url,
+        backend=chosen_backend,
+        session_id=session_id,
     )
 
 

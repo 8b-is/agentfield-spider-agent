@@ -55,7 +55,9 @@ Issues = "https://github.com/peterlodri-sec/agentfield-spider-agent/issues"
 # as such (no build backend needed) when `package = false`.
 [tool.uv]
 package = false
-dev-dependencies = [
+
+[dependency-groups]
+dev = [
     "pytest>=8",
     "pytest-asyncio>=0.23",
     "fakeredis>=2",
