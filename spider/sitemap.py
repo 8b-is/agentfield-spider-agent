@@ -37,7 +37,7 @@ async def sitemap_parse(
             async with http.get(
                 sitemap_url,
                 timeout=30,
-                follow_redirects=True,
+                allow_redirects=True,  # aiohttp's kwarg name (httpx uses follow_redirects — different API)
             ) as resp:
                 if resp.status != 200:
                     errors.append(f"HTTP {resp.status} from {sitemap_url}")
