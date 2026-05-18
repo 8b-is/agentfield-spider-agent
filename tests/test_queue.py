@@ -10,7 +10,6 @@ import asyncio
 from typing import Any
 
 import orjson
-import pytest
 
 from spider import queue, state
 

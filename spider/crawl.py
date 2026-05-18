@@ -7,7 +7,6 @@ Public surface:
 """
 from __future__ import annotations
 
-import asyncio
 import time
 import uuid
 from typing import Any
@@ -18,14 +17,25 @@ import orjson
 from .fetch import FetchDeps, fetch_one
 from .log import log
 from .security import is_safe_external_url
-from .state import enqueue as state_enqueue
 
 # Redis key patterns
 _JOB_PREFIX = "crawler:crawl"
-_QUEUE_KEY = lambda job_id: f"{_JOB_PREFIX}:{job_id}:queue"
-_VISITED_KEY = lambda job_id: f"{_JOB_PREFIX}:{job_id}:visited"
-_STATE_KEY = lambda job_id: f"{_JOB_PREFIX}:{job_id}:state"
-_RESULTS_KEY = lambda job_id: f"{_JOB_PREFIX}:{job_id}:results"
+
+
+def _QUEUE_KEY(job_id: str) -> str:
+    return f"{_JOB_PREFIX}:{job_id}:queue"
+
+
+def _VISITED_KEY(job_id: str) -> str:
+    return f"{_JOB_PREFIX}:{job_id}:visited"
+
+
+def _STATE_KEY(job_id: str) -> str:
+    return f"{_JOB_PREFIX}:{job_id}:state"
+
+
+def _RESULTS_KEY(job_id: str) -> str:
+    return f"{_JOB_PREFIX}:{job_id}:results"
 
 
 async def crawl_start(

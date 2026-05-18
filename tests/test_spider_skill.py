@@ -9,9 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import Any
-
-import pytest
+from typing import Any, Self
 
 from reasoners import _spider
 
@@ -49,10 +47,10 @@ class _FakeAsyncClient:
         self._responses = list(responses)
         self.calls: list[tuple[str, dict]] = []
 
-    async def __aenter__(self) -> "_FakeAsyncClient":
+    async def __aenter__(self) -> Self:
         return self
 
-    async def __aexit__(self, *_: Any) -> None:
+    async def __aexit__(self, *_: object) -> None:
         return None
 
     async def post(self, url: str, json: dict | None = None, **kwargs: Any) -> _FakeAsyncResponse:
@@ -119,10 +117,10 @@ def test_fetch_handles_transport_error(monkeypatch) -> None:
     import httpx
 
     class _RaisingClient:
-        async def __aenter__(self) -> "_RaisingClient":
+        async def __aenter__(self) -> Self:
             return self
 
-        async def __aexit__(self, *_: Any) -> None:
+        async def __aexit__(self, *_: object) -> None:
             return None
 
         async def post(self, url: str, **kwargs: Any) -> Any:  # noqa: ARG002
@@ -170,10 +168,10 @@ def test_feed_add_handles_transport_error(monkeypatch) -> None:
     import httpx
 
     class _RaisingClient:
-        async def __aenter__(self) -> "_RaisingClient":
+        async def __aenter__(self) -> Self:
             return self
 
-        async def __aexit__(self, *_: Any) -> None:
+        async def __aexit__(self, *_: object) -> None:
             return None
 
         async def post(self, url: str, **kwargs: Any) -> Any:  # noqa: ARG002

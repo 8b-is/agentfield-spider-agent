@@ -8,9 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import Any
-
-import pytest
+from typing import Any, Self
 
 from spider.politeness import HostBucket, RobotsCache, host_of
 
@@ -27,10 +25,10 @@ class _FakeRobotsResponse:
         self.status = status
         self._body = body
 
-    async def __aenter__(self) -> "_FakeRobotsResponse":
+    async def __aenter__(self) -> Self:
         return self
 
-    async def __aexit__(self, *_: Any) -> None:
+    async def __aexit__(self, *_: object) -> None:
         return None
 
     async def text(self) -> str:

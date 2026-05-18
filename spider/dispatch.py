@@ -38,7 +38,6 @@ from .browsers import Backend, get_or_create_pool, normalize_backend
 from .docling_parser import fetch_via_docling, is_docling_url
 from .fetch import FetchDeps, fetch_one
 
-
 # ─── classification ──────────────────────────────────────────────────
 _GH_ISSUE_RE = re.compile(
     r"^https?://github\.com/[^/]+/[^/]+/issues/\d+", re.I,

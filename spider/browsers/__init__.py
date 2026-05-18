@@ -23,6 +23,7 @@ The two pools share a small Protocol (``BrowserPool`` in ``.base``) so
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import os
 from typing import Any, Literal
 
@@ -116,10 +117,8 @@ async def shutdown_all() -> None:
     pools = list(_lazy_pools.values())
     _lazy_pools.clear()
     for p in pools:
-        try:
+        with contextlib.suppress(Exception):  # pragma: no cover - shutdown is best-effort
             await p.shutdown()
-        except Exception:  # pragma: no cover - shutdown is best-effort
-            pass
 
 
 __all__ = [

@@ -39,14 +39,13 @@ def test_health_returns_browser_state(make_deps) -> None:
     app = _build_test_app(deps)
 
     async def _go() -> None:
-        async with TestServer(app) as server:
-            async with TestClient(server) as client:
-                r = await client.get("/health")
-                assert r.status == 200
-                body = await r.json()
-                assert body["ok"] is True
-                assert body["service"] == "spider-http"
-                assert body["browser"] in ("open", "closed", "absent")
+        async with TestServer(app) as server, TestClient(server) as client:
+            r = await client.get("/health")
+            assert r.status == 200
+            body = await r.json()
+            assert body["ok"] is True
+            assert body["service"] == "spider-http"
+            assert body["browser"] in ("open", "closed", "absent")
 
     _run(_go())
 
@@ -56,18 +55,17 @@ def test_fetch_sync_rejects_bad_body(make_deps) -> None:
     app = _build_test_app(deps)
 
     async def _go() -> None:
-        async with TestServer(app) as server:
-            async with TestClient(server) as client:
-                # No body at all
-                r = await client.post("/fetch/sync", data="")
-                assert r.status == 400
-                # Body without url
-                r = await client.post(
-                    "/fetch/sync",
-                    data=orjson.dumps({}),
-                    headers={"Content-Type": "application/json"},
-                )
-                assert r.status == 400
+        async with TestServer(app) as server, TestClient(server) as client:
+            # No body at all
+            r = await client.post("/fetch/sync", data="")
+            assert r.status == 400
+            # Body without url
+            r = await client.post(
+                "/fetch/sync",
+                data=orjson.dumps({}),
+                headers={"Content-Type": "application/json"},
+            )
+            assert r.status == 400
 
     _run(_go())
 
@@ -77,16 +75,15 @@ def test_fetch_sync_blocks_private_ip_at_layer1(make_deps) -> None:
     app = _build_test_app(deps)
 
     async def _go() -> None:
-        async with TestServer(app) as server:
-            async with TestClient(server) as client:
-                r = await client.post(
-                    "/fetch/sync",
-                    data=orjson.dumps({"url": "http://127.0.0.1/secret"}),
-                    headers={"Content-Type": "application/json"},
-                )
-                assert r.status == 400
-                body = await r.json()
-                assert "SSRF" in body.get("error", "")
+        async with TestServer(app) as server, TestClient(server) as client:
+            r = await client.post(
+                "/fetch/sync",
+                data=orjson.dumps({"url": "http://127.0.0.1/secret"}),
+                headers={"Content-Type": "application/json"},
+            )
+            assert r.status == 400
+            body = await r.json()
+            assert "SSRF" in body.get("error", "")
 
     _run(_go())
 
@@ -115,19 +112,18 @@ def test_fetch_sync_happy_path_returns_ok(make_deps, monkeypatch) -> None:
     app = _build_test_app(deps)
 
     async def _go() -> None:
-        async with TestServer(app) as server:
-            async with TestClient(server) as client:
-                r = await client.post(
-                    "/fetch/sync",
-                    data=orjson.dumps({"url": "https://example.com/foo"}),
-                    headers={"Content-Type": "application/json"},
-                )
-                assert r.status == 200
-                body = await r.json()
-                assert body["status"] == "ok"
-                assert body["title"] == "Example Title"
-                assert "fetch_url" in body
-                assert body["ms"] >= 0
+        async with TestServer(app) as server, TestClient(server) as client:
+            r = await client.post(
+                "/fetch/sync",
+                data=orjson.dumps({"url": "https://example.com/foo"}),
+                headers={"Content-Type": "application/json"},
+            )
+            assert r.status == 200
+            body = await r.json()
+            assert body["status"] == "ok"
+            assert body["title"] == "Example Title"
+            assert "fetch_url" in body
+            assert body["ms"] >= 0
         # The FakePage's goto was called with the input URL.
         assert page.goto_calls and page.goto_calls[0][0] == (
             "https://example.com/foo"
@@ -161,15 +157,14 @@ def test_fetch_sync_returns_204_on_empty_content(
     app = _build_test_app(deps)
 
     async def _go() -> None:
-        async with TestServer(app) as server:
-            async with TestClient(server) as client:
-                r = await client.post(
-                    "/fetch/sync",
-                    data=orjson.dumps({"url": "https://example.com/"}),
-                    headers={"Content-Type": "application/json"},
-                )
-                # 204 = no body; aiohttp's client surfaces it as such.
-                assert r.status == 204
+        async with TestServer(app) as server, TestClient(server) as client:
+            r = await client.post(
+                "/fetch/sync",
+                data=orjson.dumps({"url": "https://example.com/"}),
+                headers={"Content-Type": "application/json"},
+            )
+            # 204 = no body; aiohttp's client surfaces it as such.
+            assert r.status == 204
 
     _run(_go())
 
@@ -199,17 +194,16 @@ def test_fetch_sync_returns_502_on_browser_error(
     app = _build_test_app(deps)
 
     async def _go() -> None:
-        async with TestServer(app) as server:
-            async with TestClient(server) as client:
-                r = await client.post(
-                    "/fetch/sync",
-                    data=orjson.dumps({"url": "https://example.com/"}),
-                    headers={"Content-Type": "application/json"},
-                )
-                assert r.status == 502
-                body = await r.json()
-                assert body["status"] == "error"
-                assert "FakePage.goto" in body["error"]
+        async with TestServer(app) as server, TestClient(server) as client:
+            r = await client.post(
+                "/fetch/sync",
+                data=orjson.dumps({"url": "https://example.com/"}),
+                headers={"Content-Type": "application/json"},
+            )
+            assert r.status == 502
+            body = await r.json()
+            assert body["status"] == "error"
+            assert "FakePage.goto" in body["error"]
 
     _run(_go())
 
@@ -222,18 +216,17 @@ def test_fetch_async_enqueues(make_deps, fake_redis) -> None:
     app = _build_test_app(deps, redis=fake_redis)
 
     async def _go() -> None:
-        async with TestServer(app) as server:
-            async with TestClient(server) as client:
-                r = await client.post(
-                    "/fetch",
-                    data=orjson.dumps({"url": "https://example.com/asyn"}),
-                    headers={"Content-Type": "application/json"},
-                )
-                assert r.status == 200
-                body = await r.json()
-                assert body["queued"] is True
-                assert body["url"] == "https://example.com/asyn"
-                assert await state.queue_depth(fake_redis) == 1
+        async with TestServer(app) as server, TestClient(server) as client:
+            r = await client.post(
+                "/fetch",
+                data=orjson.dumps({"url": "https://example.com/asyn"}),
+                headers={"Content-Type": "application/json"},
+            )
+            assert r.status == 200
+            body = await r.json()
+            assert body["queued"] is True
+            assert body["url"] == "https://example.com/asyn"
+            assert await state.queue_depth(fake_redis) == 1
 
     _run(_go())
 
@@ -245,15 +238,14 @@ def test_fetch_async_rejects_layer1_ssrf(make_deps, fake_redis) -> None:
     app = _build_test_app(deps, redis=fake_redis)
 
     async def _go() -> None:
-        async with TestServer(app) as server:
-            async with TestClient(server) as client:
-                r = await client.post(
-                    "/fetch",
-                    data=orjson.dumps({"url": "http://127.0.0.1/"}),
-                    headers={"Content-Type": "application/json"},
-                )
-                assert r.status == 400
-                assert await state.queue_depth(fake_redis) == 0
+        async with TestServer(app) as server, TestClient(server) as client:
+            r = await client.post(
+                "/fetch",
+                data=orjson.dumps({"url": "http://127.0.0.1/"}),
+                headers={"Content-Type": "application/json"},
+            )
+            assert r.status == 400
+            assert await state.queue_depth(fake_redis) == 0
 
     _run(_go())
 
@@ -263,14 +255,13 @@ def test_fetch_async_returns_503_when_redis_absent(make_deps) -> None:
     app = _build_test_app(deps)  # no redis
 
     async def _go() -> None:
-        async with TestServer(app) as server:
-            async with TestClient(server) as client:
-                r = await client.post(
-                    "/fetch",
-                    data=orjson.dumps({"url": "https://example.com/"}),
-                    headers={"Content-Type": "application/json"},
-                )
-                assert r.status == 503
+        async with TestServer(app) as server, TestClient(server) as client:
+            r = await client.post(
+                "/fetch",
+                data=orjson.dumps({"url": "https://example.com/"}),
+                headers={"Content-Type": "application/json"},
+            )
+            assert r.status == 503
 
     _run(_go())
 
@@ -281,51 +272,50 @@ def test_feeds_add_list_delete(make_deps, fake_redis) -> None:
     app = _build_test_app(deps, redis=fake_redis)
 
     async def _go() -> None:
-        async with TestServer(app) as server:
-            async with TestClient(server) as client:
-                # Initial list is empty.
-                r = await client.get("/feeds")
-                body = await r.json()
-                assert body == {"feeds": []}
+        async with TestServer(app) as server, TestClient(server) as client:
+            # Initial list is empty.
+            r = await client.get("/feeds")
+            body = await r.json()
+            assert body == {"feeds": []}
 
-                # Add a feed.
-                r = await client.post(
-                    "/feeds",
-                    data=orjson.dumps({
-                        "url": "https://feed.example/rss",
-                        "name": "test feed",
-                        "interval_s": 1800,
-                    }),
-                    headers={"Content-Type": "application/json"},
-                )
-                assert r.status == 200
-                added = await r.json()
-                feed_id = added["id"]
-                assert added["url"] == "https://feed.example/rss"
-                assert added["interval_s"] == 1800
+            # Add a feed.
+            r = await client.post(
+                "/feeds",
+                data=orjson.dumps({
+                    "url": "https://feed.example/rss",
+                    "name": "test feed",
+                    "interval_s": 1800,
+                }),
+                headers={"Content-Type": "application/json"},
+            )
+            assert r.status == 200
+            added = await r.json()
+            feed_id = added["id"]
+            assert added["url"] == "https://feed.example/rss"
+            assert added["interval_s"] == 1800
 
-                # Re-list includes it.
-                r = await client.get("/feeds")
-                body = await r.json()
-                assert len(body["feeds"]) == 1
-                assert body["feeds"][0]["id"] == feed_id
+            # Re-list includes it.
+            r = await client.get("/feeds")
+            body = await r.json()
+            assert len(body["feeds"]) == 1
+            assert body["feeds"][0]["id"] == feed_id
 
-                # GET /feeds/{id}.
-                r = await client.get(f"/feeds/{feed_id}")
-                assert r.status == 200
-                assert (await r.json())["id"] == feed_id
+            # GET /feeds/{id}.
+            r = await client.get(f"/feeds/{feed_id}")
+            assert r.status == 200
+            assert (await r.json())["id"] == feed_id
 
-                # GET unknown id returns 404.
-                r = await client.get("/feeds/deadbeef")
-                assert r.status == 404
+            # GET unknown id returns 404.
+            r = await client.get("/feeds/deadbeef")
+            assert r.status == 404
 
-                # DELETE removes it.
-                r = await client.delete(f"/feeds/{feed_id}")
-                assert r.status == 200
+            # DELETE removes it.
+            r = await client.delete(f"/feeds/{feed_id}")
+            assert r.status == 200
 
-                # Double-delete returns 404.
-                r = await client.delete(f"/feeds/{feed_id}")
-                assert r.status == 404
+            # Double-delete returns 404.
+            r = await client.delete(f"/feeds/{feed_id}")
+            assert r.status == 404
 
     _run(_go())
 
@@ -335,14 +325,13 @@ def test_feeds_add_blocks_unsafe_url(make_deps, fake_redis) -> None:
     app = _build_test_app(deps, redis=fake_redis)
 
     async def _go() -> None:
-        async with TestServer(app) as server:
-            async with TestClient(server) as client:
-                r = await client.post(
-                    "/feeds",
-                    data=orjson.dumps({"url": "http://localhost/feed.xml"}),
-                    headers={"Content-Type": "application/json"},
-                )
-                assert r.status == 400
+        async with TestServer(app) as server, TestClient(server) as client:
+            r = await client.post(
+                "/feeds",
+                data=orjson.dumps({"url": "http://localhost/feed.xml"}),
+                headers={"Content-Type": "application/json"},
+            )
+            assert r.status == 400
 
     _run(_go())
 
@@ -352,10 +341,9 @@ def test_feeds_poll_returns_404_for_unknown(make_deps, fake_redis) -> None:
     app = _build_test_app(deps, redis=fake_redis)
 
     async def _go() -> None:
-        async with TestServer(app) as server:
-            async with TestClient(server) as client:
-                r = await client.post("/feeds/nope/poll")
-                assert r.status == 404
+        async with TestServer(app) as server, TestClient(server) as client:
+            r = await client.post("/feeds/nope/poll")
+            assert r.status == 404
 
     _run(_go())
 

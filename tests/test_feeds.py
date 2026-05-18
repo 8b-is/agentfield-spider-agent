@@ -7,11 +7,7 @@ monkeypatched so we don't hit DNS in CI.
 from __future__ import annotations
 
 import asyncio
-import time
-from typing import Any
-
-import orjson
-import pytest
+from typing import Any, Self
 
 from spider import feeds, state
 
@@ -48,11 +44,11 @@ class _FakeResp:
         async def read(self, n: int) -> bytes:
             return self._body[:n]
 
-    async def __aenter__(self) -> "_FakeResp":
+    async def __aenter__(self) -> Self:
         self.content = self._Content(self._body)  # type: ignore[attr-defined]
         return self
 
-    async def __aexit__(self, *_: Any) -> None:
+    async def __aexit__(self, *_: object) -> None:
         return None
 
 

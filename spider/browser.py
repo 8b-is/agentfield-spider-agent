@@ -136,10 +136,8 @@ class CloakBrowserPool:
         try:
             yield page
         finally:
-            try:
+            with contextlib.suppress(Exception):  # pragma: no cover
                 await page.close()
-            except Exception:  # pragma: no cover
-                pass
             async with self._lock:
                 self._leases -= 1
                 if self._leases == 0:

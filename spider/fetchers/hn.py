@@ -20,7 +20,8 @@ from typing import Any
 
 import httpx
 
-from ..proxy import httpx_client_kwargs
+from spider.proxy import httpx_client_kwargs
+
 from .base import (
     USER_AGENT,
     error_result,

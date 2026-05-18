@@ -33,7 +33,10 @@ from typing import Any
 import aiohttp
 
 from .browser import (
-    CloakBrowserPool, DISABLE_RESOURCES, FETCH_TIMEOUT_MS, NETWORK_IDLE,
+    DISABLE_RESOURCES,
+    FETCH_TIMEOUT_MS,
+    NETWORK_IDLE,
+    CloakBrowserPool,
 )
 from .extract import dismiss_banners, extract_title_text
 from .log import log

@@ -7,7 +7,9 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from spider.sinks.chroma import (
-    _make_doc_id, should_sink, sink_fetch_outcome,
+    _make_doc_id,
+    should_sink,
+    sink_fetch_outcome,
 )
 
 
@@ -25,6 +27,7 @@ def test_should_sink_enabled():
     }):
         # Need to reimport to get new env
         import importlib
+
         from spider import sinks
         importlib.reload(sinks.chroma)
         from spider.sinks.chroma import should_sink as should_sink_reloaded
@@ -58,6 +61,7 @@ async def test_sink_fetch_outcome_not_enabled():
     with patch.dict(os.environ, {"SPIDER_SINK_ENABLED": ""}):
         # Reimport to disable
         import importlib
+
         from spider import sinks
         importlib.reload(sinks.chroma)
         from spider.sinks.chroma import sink_fetch_outcome as sink_reloaded

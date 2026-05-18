@@ -23,10 +23,10 @@ from typing import Any
 
 import httpx
 
-from ..log import log
-from ..proxy import httpx_client_kwargs
+from spider.log import log
+from spider.proxy import httpx_client_kwargs
+
 from .base import (
-    base_result,
     error_result,
     first_meaningful_paragraph,
     ok_result,
@@ -192,7 +192,7 @@ async def fetch_issue(url: str, *, proxy: str | None = None) -> dict[str, Any]:
     title = (issue_json.get("title") or "").strip()
     state = issue_json.get("state") or "?"
     labels = [
-        (l or {}).get("name", "") for l in (issue_json.get("labels") or [])
+        (label or {}).get("name", "") for label in (issue_json.get("labels") or [])
     ]
     body = (issue_json.get("body") or "").strip()
     body_excerpt = first_meaningful_paragraph(body) if body else ""

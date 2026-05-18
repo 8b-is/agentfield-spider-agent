@@ -7,10 +7,9 @@ from __future__ import annotations
 import asyncio
 import base64
 import json
-from typing import Any
+from typing import Any, Self
 
 import httpx
-import pytest
 
 from spider.fetchers import github
 
@@ -55,10 +54,10 @@ class _FakeClient:
         self.routes = routes
         self.calls: list[tuple[str, dict]] = []
 
-    async def __aenter__(self) -> "_FakeClient":
+    async def __aenter__(self) -> Self:
         return self
 
-    async def __aexit__(self, *_: Any) -> None:
+    async def __aexit__(self, *_: object) -> None:
         return None
 
     async def get(self, url: str, **kw: Any) -> _FakeResponse:

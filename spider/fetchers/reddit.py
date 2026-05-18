@@ -13,14 +13,14 @@ User-Agents. We send a real Chrome UA — this is the same fix
 """
 from __future__ import annotations
 
-import re
 import time
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
-from ..proxy import httpx_client_kwargs
+from spider.proxy import httpx_client_kwargs
+
 from .base import USER_AGENT, error_result, ok_result
 
 

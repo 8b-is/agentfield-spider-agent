@@ -19,6 +19,7 @@ going through HTTP.
 """
 from __future__ import annotations
 
+import contextlib
 import os
 from typing import Any
 
@@ -26,17 +27,20 @@ import orjson
 from aiohttp import web
 
 from . import feeds as feeds_mod
-from .crawl import crawl_iter, crawl_start, crawl_status
+from .crawl import crawl_start, crawl_status
 from .fetch import FetchDeps
 from .log import log
 from .queue import run_and_record
 from .security import is_safe_external_url
 from .sitemap import sitemap_parse
-from .sinks.chroma import should_sink, sink_fetch_outcome
 from .state import (
-    enqueue, feeds_count, jobs_count, queue_depth, recent_jobs, seen_count,
+    enqueue,
+    feeds_count,
+    jobs_count,
+    queue_depth,
+    recent_jobs,
+    seen_count,
 )
-
 
 _CONTENT_JSON = "application/json"
 
@@ -364,10 +368,8 @@ async def crawl_results(request: web.Request) -> web.Response:
     results_raw = await redis.lrange(results_key, 0, -1)
     results = []
     for item in results_raw:
-        try:
+        with contextlib.suppress(Exception):
             results.append(orjson.loads(item))
-        except Exception:
-            pass
 
     return _json({"job_id": job_id, "count": len(results), "results": results})
 

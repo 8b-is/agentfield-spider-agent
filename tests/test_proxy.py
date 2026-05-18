@@ -6,8 +6,6 @@ count as 'bypass'.
 """
 from __future__ import annotations
 
-import pytest
-
 from spider import proxy
 
 

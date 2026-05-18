@@ -1,13 +1,14 @@
 """Tests for crawl module."""
 from __future__ import annotations
 
-import orjson
 import pytest
 
 from spider.crawl import (
-    crawl_iter, crawl_start, crawl_status, _extract_links, _same_domain,
+    _extract_links,
+    _same_domain,
+    crawl_start,
+    crawl_status,
 )
-from spider.fetch import FetchDeps
 
 
 @pytest.mark.asyncio

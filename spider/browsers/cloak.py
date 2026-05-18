@@ -7,9 +7,7 @@ uniformly with ``spider.browsers.lightpanda``.
 """
 from __future__ import annotations
 
-from typing import Any
-
-from ..browser import CloakBrowserPool
+from spider.browser import CloakBrowserPool
 
 
 class CloakPool(CloakBrowserPool):
@@ -18,7 +16,6 @@ class CloakPool(CloakBrowserPool):
     """
 
     # No body needed — just an alias subclass for namespace consistency.
-    pass
 
 
 def __dir__() -> list[str]:

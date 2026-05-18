@@ -10,10 +10,10 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-import pytest
-
 from spider.extract import (
-    dismiss_banners, extract_structured, extract_title_text,
+    dismiss_banners,
+    extract_structured,
+    extract_title_text,
 )
 
 

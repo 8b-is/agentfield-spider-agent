@@ -28,12 +28,11 @@ def test_health_route_returns_ok():
     import spider_server
 
     async def _go():
-        async with TestServer(spider_server.build_app()) as server:
-            async with TestClient(server) as client:
-                resp = await client.get("/health")
-                assert resp.status == 200
-                body = await resp.json()
-                assert body["ok"] is True
-                assert body["service"] == "spider-http"
+        async with TestServer(spider_server.build_app()) as server, TestClient(server) as client:
+            resp = await client.get("/health")
+            assert resp.status == 200
+            body = await resp.json()
+            assert body["ok"] is True
+            assert body["service"] == "spider-http"
 
     asyncio.run(_go())

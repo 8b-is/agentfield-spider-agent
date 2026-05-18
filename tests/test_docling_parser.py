@@ -13,7 +13,6 @@ from typing import Any
 
 import pytest
 
-from spider import docling_parser
 from spider.docling_parser import (
     DOC_CONTENT_TYPE_PREFIXES,
     DOC_EXTS,

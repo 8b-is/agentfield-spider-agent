@@ -42,8 +42,8 @@ import time
 from contextlib import AbstractAsyncContextManager
 from typing import Any
 
-from ..log import log
-from ..proxy import env_proxy
+from spider.log import log
+from spider.proxy import env_proxy
 
 BROWSER_IDLE_S = int(os.environ.get("BROWSER_IDLE_S", "60"))
 LIGHTPANDA_CDP_URL = os.environ.get(
@@ -134,10 +134,8 @@ class LightpandaPool:
             )
         except Exception as e:  # pragma: no cover
             # Clean up the playwright runner if connect failed.
-            try:
+            with contextlib.suppress(Exception):
                 await self._playwright.stop()
-            except Exception:
-                pass
             self._playwright = None
             log(
                 "browser",

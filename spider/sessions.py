@@ -50,14 +50,13 @@ import asyncio
 import os
 import time
 import uuid
-from contextlib import asynccontextmanager
-from dataclasses import dataclass, field
+from contextlib import asynccontextmanager, suppress
+from dataclasses import dataclass
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 from .log import log
-
 
 # ─── env knobs ──────────────────────────────────────────────────────
 MAX_SESSIONS: int = int(os.environ.get("SPIDER_MAX_SESSIONS", "100"))
@@ -228,10 +227,8 @@ class SessionManager:
             sessions = list(self._sessions.values())
             self._sessions.clear()
         for s in sessions:
-            try:
+            with suppress(Exception):  # pragma: no cover
                 await s.context.close()
-            except Exception:  # pragma: no cover
-                pass
 
     @asynccontextmanager
     async def lease_page(
@@ -280,10 +277,8 @@ class SessionManager:
         try:
             yield page
         finally:
-            try:
+            with suppress(Exception):  # pragma: no cover
                 await page.close()
-            except Exception:  # pragma: no cover
-                pass
 
     async def _evict_locked(self) -> None:
         """Enforce the hard cap. Caller MUST hold ``self._lock``.
@@ -301,10 +296,8 @@ class SessionManager:
                 key=lambda k: self._sessions[k].info.last_used,
             )
             s = self._sessions.pop(lru_id)
-            try:
+            with suppress(Exception):  # pragma: no cover
                 await s.context.close()
-            except Exception:  # pragma: no cover
-                pass
             log("session", state="evicted-lru", id=lru_id)
 
 

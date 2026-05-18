@@ -7,7 +7,6 @@ Exercises the manager against a fake pool that mimics the
 from __future__ import annotations
 
 import asyncio
-import time
 from typing import Any
 
 import pytest
@@ -77,12 +76,11 @@ def test_create_session_returns_info() -> None:
     mgr = SessionManager()
 
     async def _go():
-        info = await mgr.create(
+        return await mgr.create(
             pool=pool,
             name="alice",
             metadata={"user_id": "abc"},
         )
-        return info
 
     info = _run(_go())
     assert isinstance(info, SessionInfo)
@@ -162,8 +160,7 @@ def test_close_returns_true_and_closes_context() -> None:
 
     async def _go():
         info = await mgr.create(pool=pool, name="x")
-        ok = await mgr.close(info.id)
-        return ok
+        return await mgr.close(info.id)
 
     assert _run(_go()) is True
     # The fake context's close was invoked.

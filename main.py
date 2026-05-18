@@ -29,8 +29,17 @@ from typing import Any
 from agentfield import Agent
 
 from reasoners._spider import (
-    _crawl, _crawl_status, _extract, _feed_add, _feed_list, _feed_poll, _feed_remove,
-    _fetch, _jobs_recent, _screenshot, _sitemap_parse,
+    _crawl,
+    _crawl_status,
+    _extract,
+    _feed_add,
+    _feed_list,
+    _feed_poll,
+    _feed_remove,
+    _fetch,
+    _jobs_recent,
+    _screenshot,
+    _sitemap_parse,
 )
 
 logger = logging.getLogger("spider-agent")

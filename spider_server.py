@@ -28,6 +28,7 @@ startup hook.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import os
 
@@ -107,7 +108,7 @@ async def _cleanup_step(name: str, coro, timeout: float = 5.0) -> bool:
         elapsed_ms = (time.perf_counter() - started) * 1000
         logger.info("cleanup.%s ok elapsed_ms=%.0f", name, elapsed_ms)
         return True
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.warning("cleanup.%s TIMEOUT after %.1fs", name, timeout)
         return False
     except Exception as e:
@@ -135,10 +136,8 @@ async def _on_cleanup(app: web.Application) -> None:
             continue
         t.cancel()
         async def _await_cancel(task=t):
-            try:
+            with contextlib.suppress(asyncio.CancelledError, Exception):
                 await task
-            except (asyncio.CancelledError, Exception):
-                pass
         await _cleanup_step(f"cancel.{key}", _await_cancel(), timeout=3.0)
 
     # 2. Sessions — close any open BrowserContexts before the pool
