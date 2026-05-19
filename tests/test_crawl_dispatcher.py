@@ -32,7 +32,9 @@ async def test_active_crawl_job_ids_from_scan():
 
 
 @pytest.mark.asyncio
-async def test_crawl_dispatcher_invokes_iter_for_active_jobs(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_crawl_dispatcher_invokes_iter_for_active_jobs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     redis = AsyncMock()
     iter_calls: list[str] = []
 
