@@ -128,6 +128,23 @@ pip install -e ".[docling]"
 When docling isn't installed, the parser returns a clean
 `status="error"` envelope rather than crashing.
 
+Docling runtime tuning knobs:
+
+- `SPIDER_DOCLING_TIMEOUT_S` (default `120`) — parse timeout
+- `SPIDER_DOCLING_MAX_TABLES` (default `10`) — max tables extracted
+- `SPIDER_DOCLING_TABLES_PREVIEW` (default `3`) — preview tables in metadata
+- `SPIDER_DOCLING_MAX_TEXT_CHARS` (default `500000`) — response text cap
+
+On `main` pushes, CI also builds and pushes a Docling-enabled image
+(`INSTALL_DOCLING=1`) using the configured cloud Buildx builder and
+tags it as `docling-latest` + `docling-$SHA`.
+
+Manual push helper:
+
+```bash
+DOCKER_USER=your-user scripts/build-docling-image.sh
+```
+
 ## Outbound proxy
 
 When `SPIDER_PROXY_URL` is set in the environment, ALL outbound HTTP
@@ -157,6 +174,38 @@ curl -X POST http://localhost:11700/fetch/sync \
   -H 'Content-Type: application/json' \
   -d '{"url":"https://example.com"}'
 ```
+
+## Agent/dev bootstrap scripts
+
+Environment bootstrap is centralized in:
+
+- `.environment/setup.sh` (shared)
+- `.environment/cursor/setup.sh`
+- `.environment/codex/setup.sh`
+- `.environment/claude/setup.sh`
+
+The scripts install `requirements.txt`, validate with `pip check`, and
+optionally install Docling when `SPIDER_INSTALL_DOCLING=1` (legacy
+`SPIDER_DOCLING_ENABLED=1` is still accepted).
+
+By default the same setup path also installs Docker CLI + buildx
+(`SPIDER_INSTALL_DOCKER=1`) and performs `docker login` when both
+`DOCKER_USER` and `DOCKER_PAT` are present (registry defaults to
+`DOCKER_REGISTRY=docker.io`).
+
+If your environment lacks root/sudo, setup now warns and continues by
+default. Set `SPIDER_INSTALL_DOCKER_STRICT=1` to force a hard failure
+instead.
+
+Bootstrap validation helper:
+
+```bash
+./scripts/check-env-bootstrap.sh
+```
+
+For local containerized development, `.devcontainer/devcontainer.json`
+uses `.devcontainer/postCreate.sh`, which delegates to the same shared
+bootstrap script.
 
 ## Engines / dependencies
 

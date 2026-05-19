@@ -56,6 +56,81 @@ logging.basicConfig(
 )
 
 
+def _env_float(name: str, default: float, *, min_value: float | None = None) -> float:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    try:
+        value = float(raw.strip())
+    except ValueError:
+        logger.warning("%s=%r is invalid; using default=%s", name, raw, default)
+        return default
+    if min_value is not None and value < min_value:
+        logger.warning("%s=%s is below min=%s; using default=%s", name, value, min_value, default)
+        return default
+    return value
+
+
+def _env_int(name: str, default: int, *, min_value: int | None = None) -> int:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    try:
+        value = int(raw.strip())
+    except ValueError:
+        logger.warning("%s=%r is invalid; using default=%s", name, raw, default)
+        return default
+    if min_value is not None and value < min_value:
+        logger.warning("%s=%s is below min=%s; using default=%s", name, value, min_value, default)
+        return default
+    return value
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    value = raw.strip().lower()
+    if value in {"1", "true", "yes", "on"}:
+        return True
+    if value in {"0", "false", "no", "off"}:
+        return False
+    logger.warning("%s=%r is invalid boolean; using default=%s", name, raw, int(default))
+    return default
+
+
+HTTP_KEEPALIVE_TIMEOUT_S = _env_float("SPIDER_HTTP_KEEPALIVE_TIMEOUT_S", 45.0, min_value=0.1)
+HTTP_CONN_LIMIT = _env_int("SPIDER_HTTP_CONN_LIMIT", 200, min_value=1)
+HTTP_CONN_LIMIT_PER_HOST = _env_int("SPIDER_HTTP_CONN_LIMIT_PER_HOST", 50, min_value=1)
+HTTP_DNS_CACHE_TTL_S = _env_int("SPIDER_HTTP_DNS_CACHE_TTL_S", 300, min_value=0)
+HTTP_ENABLE_CLEANUP_CLOSED = _env_bool("SPIDER_HTTP_ENABLE_CLEANUP_CLOSED", True)
+
+
+def _build_http_session(
+    *,
+    trace_configs: list[aiohttp.TraceConfig] | None = None,
+) -> aiohttp.ClientSession:
+    """Create the shared outbound aiohttp session with explicit reuse knobs.
+
+    This session is used by the redirect walker + robots cache checks.
+    ``keepalive_timeout`` / ``force_close=False`` make connection reuse
+    explicit across sequential fetches and avoid regressions if aiohttp
+    defaults change in future releases.
+    """
+    connector = aiohttp.TCPConnector(
+        keepalive_timeout=HTTP_KEEPALIVE_TIMEOUT_S,
+        ttl_dns_cache=HTTP_DNS_CACHE_TTL_S,
+        limit=HTTP_CONN_LIMIT,
+        limit_per_host=HTTP_CONN_LIMIT_PER_HOST,
+        force_close=False,
+        enable_cleanup_closed=HTTP_ENABLE_CLEANUP_CLOSED,
+    )
+    return aiohttp.ClientSession(
+        connector=connector,
+        trace_configs=trace_configs or [],
+    )
+
+
 async def _on_startup(app: web.Application) -> None:
     """Build long-lived deps + spawn background tasks.
 
@@ -63,7 +138,7 @@ async def _on_startup(app: web.Application) -> None:
     runs inside ``CloakBrowserPool.lease()``), so the Chromium binary
     isn't fetched until the first ``/fetch/sync`` arrives.
     """
-    http = aiohttp.ClientSession()
+    http = _build_http_session()
     # Choose the primary browser backend from env. Defaults to cloak.
     # The pool's _open() is lazy — Chromium / CDP isn't initialised
     # until the first lease, so this is cheap even if we never fetch.
@@ -87,6 +162,13 @@ async def _on_startup(app: web.Application) -> None:
     app["sessions"] = sessions
     app["deps"] = deps
     logger.info("spider-http browser backend=%s", backend)
+    logger.info(
+        "spider-http http session keepalive=%ss dns_ttl=%ss limits=%s/%s",
+        HTTP_KEEPALIVE_TIMEOUT_S,
+        HTTP_DNS_CACHE_TTL_S,
+        HTTP_CONN_LIMIT,
+        HTTP_CONN_LIMIT_PER_HOST,
+    )
 
     # Optional postgres backend for profiles + (future) cross-restart
     # session recovery. When POSTGRES_URL isn't set, ProfileStore
@@ -188,12 +270,12 @@ async def _on_cleanup(app: web.Application) -> None:
     if r is not None:
         await _cleanup_step("redis.aclose", r.aclose(), timeout=3.0)
 
-    # 4. aiohttp ClientSession — close all keep-alive conns
+    # 5. aiohttp ClientSession — close all keep-alive conns
     http: aiohttp.ClientSession | None = app.get("http")
     if http is not None:
         await _cleanup_step("http.close", http.close(), timeout=5.0)
 
-    # 5. Postgres pool
+    # 6. Postgres pool
     pg_pool = app.get("pg_pool")
     if pg_pool is not None:
         await _cleanup_step(
