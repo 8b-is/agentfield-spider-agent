@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# difit pre-commit viewer — opens a GitHub-style files-changed diff of the
+# staged changes in a local web UI. Non-blocking: spawned as a background
+# process so the commit proceeds immediately. See https://github.com/yoshiko-pg/difit
+
+if command -v difit >/dev/null 2>&1; then
+    nohup difit staged > /dev/null 2>&1 &
+elif command -v npx >/dev/null 2>&1; then
+    nohup npx -y difit@latest staged > /dev/null 2>&1 &
+fi
+exit 0
