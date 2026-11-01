@@ -28,9 +28,11 @@ from __future__ import annotations
 
 import os
 from typing import Any
+from urllib.parse import unquote, urlparse, urlunparse
 
 _ENV_NAME = "SPIDER_PROXY_URL"
 _ENV_INSECURE = "SPIDER_PROXY_TRUST_INSECURE"
+_TRUTHY = {"1", "true", "yes", "on"}
 
 
 def env_proxy() -> str | None:
@@ -109,18 +111,55 @@ def httpx_client_kwargs(per_call: str | None = None) -> dict[str, Any]:
 
 def cloakbrowser_launch_kwargs() -> dict[str, Any]:
     """kwargs to merge into ``cloakbrowser.launch_async(...)`` so the
-    Chromium process egresses via the resolved proxy.
+    Chromium process egresses via the resolved proxy and honors
+    CloakBrowser v0.6.5+ stealth/behavioral env knobs.
 
     Per-call override is NOT supported here because the browser pool
     is shared across requests; the proxy is fixed at pool launch. To
     swap proxies for a specific call, force ``use_browser=False`` and
     use the per-call kwarg on the HTTP fetcher path.
     """
+    out: dict[str, Any] = {}
     p = env_proxy()
-    if not p:
-        return {}
-    # Playwright proxy shape — CloakBrowser is Playwright-compatible.
-    return {"proxy": {"server": p}}
+    if p:
+        # Parse credentials into Playwright/CloakBrowser proxy dict so
+        # CloakBrowser v0.6.5's _has_credentials() + inline --proxy-server
+        # auth + GeoIP/WebRTC exit-IP spoofing work with user:pass URLs,
+        # while keeping unauthenticated URLs as {"server": p}.
+        normalized = p if "://" in p or "@" not in p else f"http://{p}"
+        parsed = urlparse(normalized)
+        if parsed.username:
+            netloc = parsed.hostname or ""
+            if parsed.port:
+                netloc += f":{parsed.port}"
+            server = urlunparse((parsed.scheme, netloc, parsed.path, "", "", ""))
+            proxy_dict: dict[str, str] = {
+                "server": server,
+                "username": unquote(parsed.username),
+            }
+            if parsed.password is not None:
+                proxy_dict["password"] = unquote(parsed.password)
+            out["proxy"] = proxy_dict
+        else:
+            out["proxy"] = {"server": p}
+
+    if (os.environ.get("CLOAK_HUMANIZE") or "").strip().lower() in _TRUTHY:
+        out["humanize"] = True
+    preset = (os.environ.get("CLOAK_HUMAN_PRESET") or "").strip()
+    if preset in {"default", "careful"}:
+        out["human_preset"] = preset
+    if (os.environ.get("CLOAK_GEOIP") or "").strip().lower() in _TRUTHY:
+        out["geoip"] = True
+    tz = (os.environ.get("CLOAK_TIMEZONE") or "").strip()
+    if tz:
+        out["timezone"] = tz
+    locale = (os.environ.get("CLOAK_LOCALE") or "").strip()
+    if locale:
+        out["locale"] = locale
+    lic = (os.environ.get("CLOAKBROWSER_LICENSE_KEY") or "").strip()
+    if lic:
+        out["license_key"] = lic
+    return out
 
 
 __all__ = [

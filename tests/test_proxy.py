@@ -87,6 +87,33 @@ def test_cloakbrowser_launch_kwargs_no_proxy(monkeypatch) -> None:
     assert proxy.cloakbrowser_launch_kwargs() == {}
 
 
+def test_cloakbrowser_launch_kwargs_extracts_inline_credentials(monkeypatch) -> None:
+    monkeypatch.setenv("SPIDER_PROXY_URL", "http://alice:s3cr%40t@phone.local:8888")
+    assert proxy.cloakbrowser_launch_kwargs() == {
+        "proxy": {
+            "server": "http://phone.local:8888",
+            "username": "alice",
+            "password": "s3cr@t",
+        }
+    }
+
+
+def test_cloakbrowser_launch_kwargs_stealth_env_knobs(monkeypatch) -> None:
+    monkeypatch.delenv("SPIDER_PROXY_URL", raising=False)
+    monkeypatch.setenv("CLOAK_HUMANIZE", "1")
+    monkeypatch.setenv("CLOAK_HUMAN_PRESET", "careful")
+    monkeypatch.setenv("CLOAK_GEOIP", "true")
+    monkeypatch.setenv("CLOAK_TIMEZONE", "Atlantic/Reykjavik")
+    monkeypatch.setenv("CLOAK_LOCALE", "en-IS")
+    assert proxy.cloakbrowser_launch_kwargs() == {
+        "humanize": True,
+        "human_preset": "careful",
+        "geoip": True,
+        "timezone": "Atlantic/Reykjavik",
+        "locale": "en-IS",
+    }
+
+
 # --- SPIDER_PROXY_TRUST_INSECURE -----------------------------------------
 
 
